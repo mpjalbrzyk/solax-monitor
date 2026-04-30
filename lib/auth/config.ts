@@ -7,10 +7,11 @@ export const SESSION_TTL_DAYS = 30;
 export const SESSION_TTL_SECONDS = SESSION_TTL_DAYS * 24 * 60 * 60;
 
 // Fallback list when ALLOWED_EMAILS env is not set. Lets the dashboard
-// boot on a fresh Vercel preview without manual config — Michał + tata
-// test address. Add more via env when needed.
+// boot on a fresh Vercel preview without manual config — Michał, tata
+// (real account from PGE/Solax), tata-test passive role. Add more via env.
 const FALLBACK_ALLOWED = [
   "mpjalbrzyk@gmail.com",
+  "krzysztof.jalbrzykowski@gmail.com",
   "mpjecommerce@gmail.com",
 ];
 
