@@ -72,6 +72,64 @@ const CREDS = {
   client_secret_encrypted: SOLAX_CLIENT_SECRET,
 };
 
+// PGE G11 tariff for the installation in Ząbki — see docs/context/06-tariff.md
+// Verified against the real PGE invoice 03/2603/10663516/00000001 from March 2026.
+const TARIFF = {
+  effective_from: '2026-01-01',
+  seller: 'PGE Obrót',
+  tariff_code: 'G11',
+  is_net_billing: true,
+  zones: [
+    {
+      name: 'calodobowa',
+      price_brutto_pln_kwh: 1.0991,
+      hours: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+      days_of_week: [0, 1, 2, 3, 4, 5, 6],
+    },
+  ],
+  fixed_handling_pln_month: 0.92,
+  fixed_distribution_pln_month: 12.28,
+  fixed_capacity_pln_month: 29.58,
+  fixed_oze_pln_month: 0,
+  fixed_other_pln_month: 0.41,
+  rcem_history: [
+    { month: '2023-01', price_pln_mwh: 596.56 },
+    { month: '2023-02', price_pln_mwh: 668.51 },
+    { month: '2023-03', price_pln_mwh: 508.90 },
+    { month: '2023-04', price_pln_mwh: 505.44 },
+    { month: '2023-05', price_pln_mwh: 381.44 },
+    { month: '2023-06', price_pln_mwh: 454.62 },
+    { month: '2023-07', price_pln_mwh: 439.22 },
+    { month: '2023-08', price_pln_mwh: 412.33 },
+    { month: '2023-09', price_pln_mwh: 404.82 },
+    { month: '2023-10', price_pln_mwh: 329.25 },
+    { month: '2023-11', price_pln_mwh: 378.97 },
+    { month: '2023-12', price_pln_mwh: 304.63 },
+    { month: '2025-07', price_pln_mwh: 284.83 },
+    { month: '2025-08', price_pln_mwh: 214.68 },
+    { month: '2025-09', price_pln_mwh: 279.71 },
+    { month: '2025-10', price_pln_mwh: 340.84 },
+    { month: '2025-11', price_pln_mwh: 382.88 },
+    { month: '2025-12', price_pln_mwh: 466.08 },
+    { month: '2026-01', price_pln_mwh: 551.96 },
+    { month: '2026-02', price_pln_mwh: 339.01 },
+  ],
+};
+
+// Historical yearly consumption from brother's spreadsheet — see 06-tariff.md sec 7
+const HISTORICAL = [
+  { year: 2015, consumption_from_grid_kwh: 5766, total_cost_brutto_pln: null, notes: 'arkusz brata' },
+  { year: 2016, consumption_from_grid_kwh: 5731, total_cost_brutto_pln: null, notes: 'arkusz brata' },
+  { year: 2017, consumption_from_grid_kwh: 6715, total_cost_brutto_pln: 4018, notes: 'arkusz brata' },
+  { year: 2018, consumption_from_grid_kwh: 5508, total_cost_brutto_pln: 3330, notes: 'arkusz brata' },
+  { year: 2019, consumption_from_grid_kwh: 6665, total_cost_brutto_pln: 3926, notes: 'arkusz brata' },
+  { year: 2020, consumption_from_grid_kwh: 6151, total_cost_brutto_pln: 4017, notes: 'arkusz brata' },
+  { year: 2021, consumption_from_grid_kwh: 6016, total_cost_brutto_pln: 4144, notes: 'arkusz brata' },
+  { year: 2022, consumption_from_grid_kwh: 5122, total_cost_brutto_pln: 3736, notes: 'arkusz brata, ostatni rok przed PV' },
+  { year: 2023, consumption_from_grid_kwh: 4073, total_cost_brutto_pln: 2727, notes: 'arkusz brata, PV od 23 lutego (net-billing)' },
+  { year: 2025, consumption_from_grid_kwh: 4282, total_cost_brutto_pln: null, notes: 'z faktury PGE rocznej' },
+];
+
 async function main() {
   console.log('=== Solax Monitor — initial seed ===\n');
 
@@ -124,6 +182,43 @@ async function main() {
   if (credsErr) throw credsErr;
   console.log(`   id: ${creds.id}`);
   console.log(`   provider: ${creds.provider}, client_id: ${creds.client_id}`);
+
+  // 4. tariffs (PGE G11)
+  console.log('\n4. Upserting tariff (PGE G11)…');
+  // Find existing active tariff for this inverter (effective_to IS NULL)
+  const { data: existingTariffs } = await supabase
+    .from('tariffs')
+    .select('id')
+    .eq('inverter_id', inverter.id)
+    .eq('seller', TARIFF.seller)
+    .eq('tariff_code', TARIFF.tariff_code)
+    .is('effective_to', null);
+
+  if (existingTariffs && existingTariffs.length > 0) {
+    const { error: updateErr } = await supabase
+      .from('tariffs')
+      .update({ user_id: user.id, ...TARIFF })
+      .eq('id', existingTariffs[0].id);
+    if (updateErr) throw updateErr;
+    console.log(`   updated existing: ${existingTariffs[0].id}`);
+  } else {
+    const { data: newTariff, error: insertErr } = await supabase
+      .from('tariffs')
+      .insert({ user_id: user.id, inverter_id: inverter.id, ...TARIFF })
+      .select('id')
+      .single();
+    if (insertErr) throw insertErr;
+    console.log(`   inserted: ${newTariff.id}`);
+  }
+
+  // 5. historical_yearly_consumption
+  console.log('\n5. Upserting historical_yearly_consumption…');
+  const histRows = HISTORICAL.map((h) => ({ user_id: user.id, inverter_id: inverter.id, ...h }));
+  const { error: histErr } = await supabase
+    .from('historical_yearly_consumption')
+    .upsert(histRows, { onConflict: 'inverter_id,year' });
+  if (histErr) throw histErr;
+  console.log(`   ${histRows.length} years (${HISTORICAL[0].year}–${HISTORICAL[HISTORICAL.length - 1].year})`);
 
   console.log('\n=== Seed complete ===');
   console.log(`user_id:     ${user.id}`);
