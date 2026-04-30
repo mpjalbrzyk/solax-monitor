@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sun } from "lucide-react";
 import { NAV_ITEMS } from "./nav-config";
+import { LogoutButton } from "./logout-button";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
@@ -51,10 +52,13 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto px-3 py-3 text-[11px] text-muted-foreground">
-        Pipeline: <span className="text-foreground">aktywny</span>
-        <br />
-        Polling co 5 min
+      <div className="mt-auto flex flex-col gap-2">
+        <LogoutButton variant="sidebar" />
+        <div className="px-3 pb-2 text-[11px] text-muted-foreground">
+          Pipeline: <span className="text-foreground">aktywny</span>
+          <br />
+          Polling co 5 min
+        </div>
       </div>
     </aside>
   );

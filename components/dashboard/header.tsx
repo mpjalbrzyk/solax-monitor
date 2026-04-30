@@ -1,5 +1,6 @@
 import { Sun } from "lucide-react";
 import { RefreshIndicator } from "./refresh-indicator";
+import { LogoutButton } from "./logout-button";
 
 export function DashboardHeader({
   recordedAt,
@@ -30,7 +31,12 @@ export function DashboardHeader({
         )}
       </div>
 
-      <RefreshIndicator recordedAt={recordedAt} />
+      <div className="flex items-center gap-2">
+        <RefreshIndicator recordedAt={recordedAt} />
+        <span className="lg:hidden">
+          <LogoutButton variant="icon" />
+        </span>
+      </div>
     </header>
   );
 }
