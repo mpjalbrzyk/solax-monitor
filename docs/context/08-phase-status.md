@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 30 kwietnia 2026 wieczorem — Faza 3 funkcjonalnie zamknięta, dashboard na production.
+**Ostatnia aktualizacja:** 30 kwietnia 2026 późny wieczór — Faza 3 + enhancement A (PGE authoritative data) zamknięte. O-003 closed scenariusz A potwierdzony.
 
 ---
 
@@ -384,6 +384,80 @@ Wniosek: token jest typu Restricted/Service Account — REST API potwierdza toż
 - Pipeline poll co 5 min, daily aggregates 01:00 UTC
 
 **Następna faza:** 4 (chatbot operacyjny). Wymaga rozstrzygnięcia O-003 (status fizycznej baterii) — bez tego chatbot odpowie na "ile mam w baterii" gdy jej nie ma. Pytanie do Krzysztofa otwarte.
+
+---
+
+## Faza 3 — enhancement A (PGE authoritative data, 30.04.2026 późny wieczór)
+
+Michał wrzucił do `docs/source-documents/` i `docs/pge-invoices/` komplet PDF-ów + dwa nowe pliki kontekstu:
+- `08-historical-monthly-data.md` — 37 miesięcy zwalidowanych z 7 faktur PGE
+- `09-pge-invoices-audit.md` — trail 8 faktur z numerami i datami zapłaty
+- Plus umowa Sunwise + karta gwarancyjna (rozstrzyga O-003)
+
+**6 modułów wykonanych:**
+
+| # | Co | Commit |
+|---|-----|--------|
+| 1 | 3 nowe tabele: `historical_pge_invoices`, `pge_invoices`, `tariff_components` | `29d0185` |
+| 2 | Seed: 37 mies. + 10 faktur + 29 komponentów cenowych | `8b1ebb3` |
+| 3 | Align istniejących: user_inverters (7.70 kWp, install date 2023-02-17), historical_yearly_consumption (PGE-derived), tariffs.rcem_history (37 entries z billing_model + multiplier) | `2af4cfa` |
+| 4 | Financial dashboard używa `calculatePgeActualSavings` z `historical_pge_invoices` + `tariff_components` per miesiąc, nie estymata roczna | `fd44474` |
+| 5 | Edge Function `roll-monthly-aggregates` cron 1. dzień mies. 02:00 UTC, daily→monthly rollup. Solax dane będą się akumulować ciągle, niezależnie od limitu API "past year" | `37b6b42` |
+| 6 | Update dokumentacji (00, 03 O-003 closed, 07, 08) | TBD |
+
+### Stan końcowy danych w bazie
+
+- `historical_pge_invoices`: **37 mies.** (02.2023 → 02.2026), 31 z PDF + 6 z 06-tariff.md (TBD-faktura). Lifetime: 12 277 kWh import, 10 032 kWh eksport, 3 198,46 PLN deposit
+- `pge_invoices`: **10 faktur** (8 settlement/forecast/correction + 1 nota odsetkowa + 1 prognoza pending)
+- `tariff_components`: **29 komponentów × okresów** dla 11 składników G11
+- `user_inverters`: 7,70 kWp (było 8,00), data 2023-02-17 (było 2023-02-23), bateria NULL ✓
+- `historical_yearly_consumption`: 5 lat (2022-2026) ze zwalidowanymi sumami z faktur
+- `tariffs.rcem_history`: 37 entries z billing_model + multiplier (było 20 entries z lukami)
+- `monthly_aggregates`: 16 entries (Solax 2025-01 do 2026-04). Edge Function rollup zacznie dorzucać 2026-05 i dalej automatycznie 1. czerwca 2026
+
+### Korekty dokumentacji wynikające z umowy/karty gwarancyjnej
+
+- **Panele**: Hyundai HiE-S400VG 400W → **JOLYWOOD JW-HD120N 385W** (20 sztuk, autorytatywne z umowy + karty gwarancyjnej)
+- **Falownik**: umowa miała X3-HYBRID-8.0T → faktycznie **X3-Hybrid G4 10.0-M + mod. WiFi** (zmiana w trakcie bez aneksu, karta gwarancyjna potwierdza)
+- **Moc PV**: 8.00 kWp → **7.70 kWp** (8.00 to nominalna falownika, 7.70 to realna DC paneli)
+- **Daty**: pojedyncza "instalacja 2023-02-23" → trzy graniczne (12.01 odbiór, 17.02 wymiana licznika, 23.02 API start)
+
+### Co dashboard pokaże po tych zmianach
+
+Po Vercel rebuildzie (~30s) `/financial` powinien pokazać:
+- **PGE-actual** liczone na bazie 37 miesięcy z faktur, nie estymaty rocznej. Realna liczba ~13 000-18 000 PLN (dla 24 000 PLN target)
+- **Solax-reported** zostaje jak było (cumulative z `daily_aggregates`, undercounted)
+- **Bilans inwestycji** używa lepszego (PGE-actual)
+- **Próg zwrotu** — bardziej realistyczna projekcja na bazie tempa z PGE invoices
+
+### Co trzeba dograć z eBOK PGE (niekrytyczne)
+
+- Faktura obejmująca 09.2025-02.2026 — Michał ma dane w `06-tariff.md` ale PDF jeszcze nie analizowany. Po dotarciu wpisać `invoice_no` w 6 wpisach `historical_pge_invoices` które mają teraz `data_source = 'tariff_md_extracted'`
+- Wyciągi bankowe 2024-10/12 dla reconciliacji 2 podejrzanych wpłat (sec 12 audytu)
+
+---
+
+## Stan na koniec dnia 30.04.2026
+
+**Zrobione:** Fazy 0, 1, 2, 3 + Faza 3 enhancement A. Dashboard działa na production z autorytatywnymi danymi PGE.
+
+**Statystyki kodu:**
+- ~25 commitów do main od początku Fazy 0
+- 5 migracji bazy + 1 zaplanowany cron
+- 8 Edge Functions (z których 5 ma realną implementację: `refresh-token`, `poll-realtime`, `poll-alarms`, `daily-aggregates`, `roll-monthly-aggregates`)
+- 5 stron dashboardu, 19 metryk z tooltipami
+- Auth allowlist (3 maile rodziny)
+
+**Następne fazy** (wg `01-strategia.md` i `05-implementation-plan.md`):
+
+| Faza | Treść | Czas | Status |
+|------|-------|------|--------|
+| 4 | Chatbot operacyjny — Claude API + tool calling do Twoich danych. Pyta o produkcję/zużycie/finanse, używa `historical_pge_invoices` + `tariff_components` + `monthly_aggregates` żeby precyzyjnie odpowiadać | 1 dzień | ⏳ ODBLOKOWANE (O-003 closed) |
+| 6 | Email digest tygodniowy/miesięczny + alerty na pad pipeline'u (Resend, ~3000 maili/mc free) | pół dnia | ⏳ pending |
+| 5 | Chatbot techniczny RAG — Voyage embeddings + parsowanie PDF-ów Solax X3-Hybrid manuali | 1 dzień | ⏳ pending (czeka na PDF-y w `docs/solax-pdfs/`) |
+| 7 | Multi-tenant polish + onboarding flow — gdy będą prawdziwi klienci poza rodziną | 1 dzień | ⏳ pending |
+
+**Moja rekomendacja jako 20-letni senior:** następna **Faza 6** (alerty mailowe). Dashboard żyje, ale rodzina nie wchodzi codziennie. Mail "uwaga, falownik się wyłączył 14h temu" to konkretny mechanizm który dostarcza wartość bez kliknięcia. Faza 4 (chatbot) jest cool ale to bardziej "zabawka" — Faza 6 to "monitorowanie", czyli istota produktu.
 
 ---
 

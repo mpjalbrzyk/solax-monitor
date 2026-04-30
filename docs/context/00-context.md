@@ -14,7 +14,11 @@ Pozycjonuję się jako praktyk: testuję AI i automatyzację u siebie zanim pole
 
 ## Co mam — moja instalacja fotowoltaiczna
 
-**Falownik: Solax X3-Hybrid-10.0-M** (linia G4, sufiks "M" = Master, cluster-capable, działa też standalone), zainstalowany 23 lutego 2023. Numer modelu wewnętrzny `9318.00083.01`. Moc instalacji PV: **8 kWp** (18-20 paneli Hyundai HiE-S400VG 400W). Komunikacja przez WiFi dongle WIFI3.0, dane synchronizowane z Solax Cloud co 5 minut.
+**Falownik: Solax X3-Hybrid G4 10.0-M + mod. WiFi** (linia G4, sufiks "M" = Master, cluster-capable, działa też standalone). Numer modelu wewnętrzny `9318.00083.01`. **Odbiór końcowy 12.01.2023, wymiana licznika dwukierunkowego 17.02.2023, pierwszy odczyt API 23.02.2023.** Moc instalacji PV: **7,70 kWp** (20× **JOLYWOOD JW-HD120N 385W** N-type Bifacial Double Glass). Komunikacja przez WiFi dongle WIFI3.0, dane synchronizowane z Solax Cloud co 5 minut.
+
+(Solax API raportuje 8.00 kWp — to nominalna moc falownika, nie paneli. Realna moc DC paneli to 7.70 kWp z umowy + karty gwarancyjnej.)
+
+(Umowa z 24.11.2022 określała falownik **X3-HYBRID-8.0T** — w trakcie instalacji SunWise zmienił bez aneksu na **X3-Hybrid G4 10.0-M**. Karta gwarancyjna z 12.01.2023 potwierdza nową wersję. Dotychczasowa dokumentacja używała innych modeli paneli — Hyundai HiE-S400VG — co było błędem; faktyczne to JOLYWOOD JW-HD120N.)
 
 API Solax mapuje ten falownik jako `deviceModel=14` (linia G4 dla businessType=1 Residential), więc cała dokumentacja Solax G4 jest aplikowalna. Fizyczne oznaczenie produktu z naklejki jest jednak inne niż dotąd opisywaliśmy — to **X3-Hybrid-10.0-M**, nie "X3-Hybrid-G4 10 kW".
 
@@ -27,12 +31,12 @@ API Solax mapuje ten falownik jako `deviceModel=14` (linia G4 dla businessType=1
 - Off-grid: 10000VA, 400/230V
 - IP65, temp -35°C do +60°C
 
-**Bateria — status do potwierdzenia (30.04.2026).** Display falownika pokazuje "Bateria 0.0V" na porcie baterii. Trzy możliwe scenariusze (do rozstrzygnięcia z Krzysztofem):
-- **A** (najbardziej prawdopodobny): bateria nigdy nie została zainstalowana. SunWise dał tylko falownik hybrydowy bez baterii. Mój Prąd 4.0 mógł dać 5000 PLN za sam hybrydowy falownik
-- **B**: bateria fizycznie istnieje, ale jest odłączona / wyłączona
-- **C**: bateria była, jest uszkodzona, falownik jej nie widzi
+**Bateria — POTWIERDZONA NIEOBECNOŚĆ (30.04.2026, scenariusz A z O-003).** Trzy źródła zgodne:
+- Umowa SunWise 47.W/M/2022 z 24.11.2022, Załącznik 2 — brak baterii w specyfikacji
+- Karta gwarancyjna SunWise z 12.01.2023 — brak baterii w sekcji "Gwarancja obejmuje urządzenia"
+- Display falownika 30.04.2026 — 0,0 V na porcie baterii
 
-Patrz O-003 w `03-decisions.md`. Schemat bazy (`device_realtime_readings.device_type=2`, pola w `daily_aggregates`) zostaje future-proof na wypadek scenariusza B/C lub przyszłego zakupu baterii.
+SunWise zainstalował falownik **gotowy pod baterię** + przygotował "łącze bater." (kable, konfiguracja inwertera, gwarantowane 5 lat na montaż), ale **fizycznej baterii nigdy nie zainstalowano**. Mój Prąd 4.0 wypłacił 16 000 PLN za sam hybrydowy falownik. Schemat bazy (`device_realtime_readings.device_type=2`, pola w `daily_aggregates`) zostaje future-proof na wypadek przyszłego zakupu baterii (rodzina rozważa razem z autem elektrycznym — patrz pamięć projektu).
 
 **Wykonawca instalacji:** SunWise Energy Sp. z o.o. (Warszawa, Bonifraterska 17, tel. 502 919 391). Pierwsza koncepcja z 2021 zakładała SolarEdge SE7K bez baterii, w trakcie zmieniono falownik na Solax X3-Hybrid-10.0-M (hybrydowy, gotowy pod baterię). Czy bateria została faktycznie zainstalowana — TBD (patrz wyżej). Detale w `07-installation-history.md`.
 
@@ -41,8 +45,13 @@ Patrz O-003 w `03-decisions.md`. Schemat bazy (`device_realtime_readings.device_
 - Registration No. (dongle WiFi): `SXTGG4YRYR`
 - Plant ID (Solax Cloud): `1613529907775754244`
 - Plant name w Solax Cloud: `Legionow17 Site 1`
-- deviceModel: 14 (linia G4 dla businessType=1 Residential, fizycznie X3-Hybrid-10.0-M)
+- deviceModel: 14 (linia G4 dla businessType=1 Residential, fizycznie X3-Hybrid G4 10.0-M)
 - Model number (z naklejki): `9318.00083.01`
+- PPE PGE: `PL_ZEWD_1434043623_06`
+- Numer ewidencyjny licznika: `12 7706088`
+- Moc przyłączeniowa / umowna: 13 kW
+- Moc mikroinstalacji: 7,70 kW
+- Maksymalna roczna ilość energii do sieci: 7 700 kWh/rok (z umowy z PGE)
 
 **Identyfikatory umowy i licznika (z faktury PGE):**
 - Adres: Legionów 17, 05-091 Ząbki

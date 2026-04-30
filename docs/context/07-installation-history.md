@@ -82,16 +82,30 @@ Realny koszt netto instalacji (po odjęciu dotacji) jest kluczową liczbą dla k
 
 ---
 
-## 5. Faktyczna instalacja (luty 2023)
+## 5. Faktyczna instalacja (styczeń-luty 2023) — autorytatywne dane z umowy + karty gwarancyjnej
 
-**Data podpięcia:** 23 lutego 2023 (z API Solax — `Online Time: 2023-02-23 12:42:48`)
+**Trzy daty graniczne** (źródło: karta gwarancyjna SunWise 12.01.2023 + 08-historical-monthly-data.md sec 2):
 
-**Konfiguracja docelowa:**
-- Moc PV: **8,00 kWp** (z panelu Solax, prawdopodobnie 18-20 paneli × 400 W Hyundai HiE-S400VG)
-- Falownik: **Solax X3-Hybrid-10.0-M** (3-fazowy, hybrydowy, linia G4, sufiks "M" = Master cluster-capable). Numer modelu wewnętrzny `9318.00083.01`. API Solaxa raportuje `deviceModel: 14` (linia G4)
+| Data | Zdarzenie |
+|------|-----------|
+| **12.01.2023** | Odbiór końcowy instalacji od SunWise. Falownik produkuje, ale brak licznika dwukierunkowego — eksport się nie liczy |
+| 30.01.2023 | Złożenie zgłoszenia mikroinstalacji w PGE (sygn. 23-G3/S/00439) |
+| **17.02.2023** | Wymiana licznika na dwukierunkowy (Zlecenie OT 1312/U/2023, monter Monika Bietak). **Pierwszy moment kiedy net-billing zaczyna działać** |
+| 23.02.2023 | Pierwsza data rejestracji w API SolaX |
+
+Pole `installation_date` w `user_inverters` ma wartość **2023-02-17** — net-billing start, autorytatywny moment dla rozliczeń finansowych.
+
+**Konfiguracja docelowa (z karty gwarancyjnej z 12.01.2023):**
+- Moc PV: **7,70 kWp** (20× JOLYWOOD JW-HD120N 385W N-type Bifacial Double Glass)
+- Falownik: **SOLAX X3-HYBRID G4 10.0-M + mod. WiFi** (3-fazowy, hybrydowy, linia G4, sufiks "M" = Master cluster-capable). Numer modelu wewnętrzny `9318.00083.01`. API Solaxa raportuje `deviceModel: 14` (linia G4). Solax API wartość `pvCapacity: 8.00` to nominalna moc falownika, nie paneli — autorytatywna moc DC paneli to 7,70 kWp
 - Dongle WiFi: **WIFI3.0** (SN: SXTGG4YRYR)
-- Bateria: **status do potwierdzenia, najprawdopodobniej brak** (patrz niżej)
+- Konstrukcja: K2/SOLTEC dachówka ceramiczna POD/RE, gwarancja 12 lat
+- Skrzynka ACDC: DEHN/PHOENIX (wyłącznik różnicowo-prądowy AC, DC, wyłącznik)
+- Kable: solarne 6 mm², zasilające 10 mm², uziom 16 mm² + szpile uziom. 5 sztuk
+- Bateria: **brak** (O-003 closed scenariusz A)
 - Net-billing automatycznie (instalacja po 1.04.2022)
+
+**Zmiana sprzętu w trakcie:** umowa z 24.11.2022 specyfikowała falownik **X3-HYBRID-8.0T** — w trakcie SunWise zmienił bez formalnego aneksu na **X3-HYBRID G4 10.0-M** (nowsza linia, większa moc nominalna). Karta gwarancyjna potwierdza nową wersję jako produkt finalny.
 
 **Specyfikacja falownika z naklejki (zdjęcie 30.04.2026):**
 - Max DC Voltage: 1000V, MPP Range: 180-950V
@@ -107,28 +121,22 @@ Realny koszt netto instalacji (po odjęciu dotacji) jest kluczową liczbą dla k
 - Solax Developer Portal API: zarejestrowany, App Code b64c796a-d03d-4595-b54c-067908c615dc
 - Stary Classic Token API jako fallback: tokenID `20240823170308016500959`, address `https://global.solaxcloud.com` (wygenerowany 23.08.2024)
 
-### Bateria — status do potwierdzenia (30.04.2026)
+### Bateria — POTWIERDZONA NIEOBECNOŚĆ (30.04.2026 wieczorem) — O-003 closed
 
-Dotychczasowa dokumentacja zakładała że bateria fizycznie istnieje i jest podłączona przez BMS. Po inspekcji fizycznej falownika 30.04.2026 ten założenie się chwieje:
+Po analizie dokumentów sklasyfikowane jako **scenariusz A potwierdzony**. Trzy zgodne źródła:
 
-- **Display falownika pokazuje "Bateria 0.0V"** na porcie baterii
-- W API Solaxa bateria nie jest zarejestrowana jako device w `page_device_info` (znany od początku, dotąd traktowane jako "monter nie zarejestrował, ale fizycznie jest")
-- Na zdjęciu falownika z zewnątrz nie widać kabli BAT+/BAT- ani fizycznej baterii w kadrze
+1. **Umowa SunWise 47.W/M/2022 z 24.11.2022, Załącznik 2** — specyfikacja zawiera tylko panele JOLYWOOD, falownik X3-HYBRID-8.0T (potem zmieniony na 10.0-M), konstrukcja, skrzynka ACDC, kable. **Brak baterii w specyfikacji.**
+2. **Karta gwarancyjna SunWise z 12.01.2023** — sekcja "Gwarancja obejmuje urządzenia" wymienia Moduły, Falownik, Konstrukcję Montażową, Kable, Skrzynkę ACDC, Montaż. **Brak baterii.** Sekcja Montaż wymienia "łącze bater." — czyli SunWise przygotował kabel/konfigurację pod baterię, ale samej baterii nie zainstalował.
+3. **Display falownika 30.04.2026** — 0,0 V na porcie baterii.
 
-**Trzy możliwe scenariusze (do rozstrzygnięcia z Krzysztofem):**
+**Wniosek:** bateria nigdy nie została zainstalowana. Falownik hybrydowy + przygotowane łącze = gotowość pod przyszły zakup. Mój Prąd 4.0 wypłacił 16 000 PLN za sam hybrydowy falownik (program przyznawał dotacje na hybrydowy ALBO hybrydowy + bateria, w 2022/2023 sam hybrydowy też się kwalifikował).
 
-| Scenariusz | Opis | Konsekwencja dla aplikacji |
-|------------|------|----------------------------|
-| **A** (najbardziej prawdopodobny) | Bateria nigdy nie została zainstalowana. SunWise dał tylko falownik hybrydowy bez baterii. Mój Prąd 4.0 mógł dać 5000 PLN za sam falownik hybrydowy | Schemat tabel zostaje (future-proof), ale `device_realtime_readings.device_type=2` zawsze pusty. Sekcja "Bateria" w dashboardzie ukryta lub pokazuje "Brak" |
-| **B** | Bateria fizycznie istnieje, ale jest odłączona / wyłączona | Trzeba skontrolować podłączenie przy okazji wizyty serwisowej. Jak podłączą — pipeline od razu zacznie zapisywać dane |
-| **C** | Bateria była, jest uszkodzona, falownik jej nie widzi | Potrzebny serwis. Niezależnie — pipeline gotowy żeby od dnia naprawy zacząć zapisywać dane |
+**Konsekwencje finansowe:**
+- Self-use rate liczony z `monthly_aggregates` jest realny — bez baterii dom zużywa PV bezpośrednio gdy jest produkcja, nadwyżki idą do grid (rozliczane w net-billingu po RCEm/RCE)
+- Logika "Solax niedoszacowuje import" wymaga innego wyjaśnienia niż "bateria ładowana z grid" — najprawdopodobniej niezgodność CT (current transformer) z fakturą PGE, znany problem dla deviceModel=14 X3-Hybrid-10.0-M
+- W dashboardzie jako PGE-actual używamy danych z faktur (37 mies. w `historical_pge_invoices`), nie Solax-reported
 
-**Decyzja architekturalna:** schemat bazy (`device_realtime_readings.device_type=2`, pola w `daily_aggregates`, `monthly_aggregates`) zostaje bez zmian — kod ma być reużywalny dla klientów którzy MAJĄ baterię, plus jeśli scenariusz B/C — odzyska sensownie po naprawie. Patrz O-003 w `03-decisions.md`.
-
-**Konsekwencje finansowe scenariusza A:**
-- Lifetime savings z autokonsumpcji nieco niższe niż dotąd zakładaliśmy (bez baterii nie da się przesunąć produkcji nadwyżkowej z dnia na noc)
-- Realny self-use rate ~95-99% mimo to (z `monthly_aggregates`) bo zużycie domu pokrywa się z dziennym oknem produkcji
-- Logika "import z grid niedoszacowany przez Solaxa" z `08-phase-status.md` Fazy 2 może mieć inne wytłumaczenie niż "bateria ładowana z grid w nocy" — np. nieprawidłowe okablowanie CT albo Solax po prostu liczy `importEnergy` inaczej niż faktura PGE
+**Co dalej:** rodzina rozważa zakup baterii **wyłącznie w pakiecie z autem elektrycznym**. Bez EV bateria sama nie ma sensu finansowego (self-use rate ~99% mimo braku baterii — zużycie pokrywa się z dziennym oknem produkcji, nadwyżki to drobne).
 
 ---
 

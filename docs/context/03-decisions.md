@@ -193,9 +193,29 @@ Powód anulowania: Supabase Edge Functions + pg_cron w pełni zastępują n8n dl
 
 ---
 
-### O-003: Czy bateria istnieje fizycznie
+### O-003: Czy bateria istnieje fizycznie ✅ ROZSTRZYGNIĘTE 30.04.2026 — Scenariusz A potwierdzony
 
-**Status:** do rozstrzygnięcia. **Blokuje implementację Fazy 4 (chatbot operacyjny), NIE blokuje Faz 0-3.**
+**Status:** **CLOSED — bateria nie została zainstalowana.** Decyzja na bazie analizy umowy + karty gwarancyjnej SunWise (Michał wrzucił PDF-y 30.04.2026 wieczorem do `docs/source-documents/`).
+
+**Trzy zgodne źródła:**
+1. **Umowa SunWise 47.W/M/2022 z 24.11.2022, Załącznik 2 (Opis techniczny)** — specyfikacja sprzętu zawiera tylko: 20× JOLYWOOD JW-HD120N 385W, falownik X3-HYBRID-8.0T (potem zmieniony bez aneksu na X3-Hybrid G4 10.0-M), konstrukcja K2/SOLTEC, skrzynka ACDC DEHN/PHOENIX. **Bateria nieobecna.**
+2. **Karta gwarancyjna z 12.01.2023** — sekcja "Gwarancja obejmuje urządzenia" wymienia: moduły PV (15 lat / 30 lat moc), falownik (10 lat), konstrukcja montażowa (12 lat), kable (wg producenta), skrzynka ACDC (wg producenta), Montaż (5 lat). **W sekcji urządzeń brak baterii.** Sekcja Montaż wymienia "łącze bater." — czyli SunWise przygotował kabel/konfigurację pod baterię, ale samej baterii nie zainstalował.
+3. **Display falownika 30.04.2026** — 0,0 V na porcie baterii.
+
+**Konsekwencja architekturalna:** Mój Prąd 4.0 wypłacił 16 000 PLN za sam hybrydowy falownik (program przyznawał dotacje na falownik hybrydowy ALBO falownik + bateria — w 2022/2023 sam hybrydowy też się kwalifikował). Realny koszt netto 24 000 PLN ✓ zgadza się.
+
+**Schemat bazy zostaje future-proof:**
+- `device_realtime_readings.device_type=2` — wciąż zdefiniowane na wypadek przyszłego zakupu baterii
+- `user_inverters.battery_capacity_kwh = NULL`, `battery_model = NULL` — flagi które dashboard interpretuje jako "Brak baterii"
+- Wszystkie sekcje bateryjne UI mają fallback "Brak / Falownik bez magazynu"
+
+**Konsekwencja dla Fazy 4 (chatbot):** odblokowane. Chatbot będzie wiedział że bateria nie istnieje, więc nie zaimprowizuje fałszywej odpowiedzi na "ile mam w baterii". Zamiast tego wyjaśni: "Twoja instalacja nie ma baterii — falownik jest gotowy, ale magazynu nigdy nie zainstalowano. Rodzina rozważa zakup baterii w pakiecie z autem elektrycznym."
+
+---
+
+### ~~O-003: Czy bateria istnieje fizycznie~~ (zachowane do historii)
+
+~~**Status:** do rozstrzygnięcia. Blokuje implementację Fazy 4 (chatbot operacyjny), NIE blokuje Faz 0-3.~~
 
 **Data wykrycia:** 30 kwietnia 2026 wieczorem (inspekcja fizyczna falownika).
 
