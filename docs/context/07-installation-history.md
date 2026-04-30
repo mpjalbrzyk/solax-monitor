@@ -88,18 +88,47 @@ Realny koszt netto instalacji (po odjęciu dotacji) jest kluczową liczbą dla k
 
 **Konfiguracja docelowa:**
 - Moc PV: **8,00 kWp** (z panelu Solax, prawdopodobnie 18-20 paneli × 400 W Hyundai HiE-S400VG)
-- Falownik: **Solax X3-Hybrid-G4 10 kW** (3-fazowy, hybrydowy)
+- Falownik: **Solax X3-Hybrid-10.0-M** (3-fazowy, hybrydowy, linia G4, sufiks "M" = Master cluster-capable). Numer modelu wewnętrzny `9318.00083.01`. API Solaxa raportuje `deviceModel: 14` (linia G4)
 - Dongle WiFi: **WIFI3.0** (SN: SXTGG4YRYR)
-- Bateria: model i kapacitet do potwierdzenia (sprawdzić na naklejce)
-- BMS: komunikacja przez magistralę (CAN albo RS485) z falownikiem
+- Bateria: **status do potwierdzenia, najprawdopodobniej brak** (patrz niżej)
 - Net-billing automatycznie (instalacja po 1.04.2022)
+
+**Specyfikacja falownika z naklejki (zdjęcie 30.04.2026):**
+- Max DC Voltage: 1000V, MPP Range: 180-950V
+- Max DC Current Input A/B: 26A / 14A
+- Battery Voltage Range: 180-650V (HV battery)
+- Max Charge/Discharge: 30A / 30A
+- AC Output: 10000W (16.1A), Apparent: 11000VA
+- Off-grid: 10000VA, 400/230V
+- IP65, temp -35°C do +60°C
 
 **Komunikacja:**
 - Solax Cloud (panel konsumencki): działa, account na krzysztof.jalbrzykowski@gmail.com
 - Solax Developer Portal API: zarejestrowany, App Code b64c796a-d03d-4595-b54c-067908c615dc
 - Stary Classic Token API jako fallback: tokenID `20240823170308016500959`, address `https://global.solaxcloud.com` (wygenerowany 23.08.2024)
 
-**Bateria: znany problem.** W API Solaxa bateria nie jest zarejestrowana jako osobny device w `page_device_info`. Workaround przez `requestSnType=1` (przez SN inwertera). Detale w `04-api-spec.md` sekcja 7.1 i 9. Możliwa przyczyna: monter podczas instalacji nie przeszedł procedury rejestracji baterii w panelu Solax Cloud, choć BMS się skomunikował fizycznie.
+### Bateria — status do potwierdzenia (30.04.2026)
+
+Dotychczasowa dokumentacja zakładała że bateria fizycznie istnieje i jest podłączona przez BMS. Po inspekcji fizycznej falownika 30.04.2026 ten założenie się chwieje:
+
+- **Display falownika pokazuje "Bateria 0.0V"** na porcie baterii
+- W API Solaxa bateria nie jest zarejestrowana jako device w `page_device_info` (znany od początku, dotąd traktowane jako "monter nie zarejestrował, ale fizycznie jest")
+- Na zdjęciu falownika z zewnątrz nie widać kabli BAT+/BAT- ani fizycznej baterii w kadrze
+
+**Trzy możliwe scenariusze (do rozstrzygnięcia z Krzysztofem):**
+
+| Scenariusz | Opis | Konsekwencja dla aplikacji |
+|------------|------|----------------------------|
+| **A** (najbardziej prawdopodobny) | Bateria nigdy nie została zainstalowana. SunWise dał tylko falownik hybrydowy bez baterii. Mój Prąd 4.0 mógł dać 5000 PLN za sam falownik hybrydowy | Schemat tabel zostaje (future-proof), ale `device_realtime_readings.device_type=2` zawsze pusty. Sekcja "Bateria" w dashboardzie ukryta lub pokazuje "Brak" |
+| **B** | Bateria fizycznie istnieje, ale jest odłączona / wyłączona | Trzeba skontrolować podłączenie przy okazji wizyty serwisowej. Jak podłączą — pipeline od razu zacznie zapisywać dane |
+| **C** | Bateria była, jest uszkodzona, falownik jej nie widzi | Potrzebny serwis. Niezależnie — pipeline gotowy żeby od dnia naprawy zacząć zapisywać dane |
+
+**Decyzja architekturalna:** schemat bazy (`device_realtime_readings.device_type=2`, pola w `daily_aggregates`, `monthly_aggregates`) zostaje bez zmian — kod ma być reużywalny dla klientów którzy MAJĄ baterię, plus jeśli scenariusz B/C — odzyska sensownie po naprawie. Patrz O-003 w `03-decisions.md`.
+
+**Konsekwencje finansowe scenariusza A:**
+- Lifetime savings z autokonsumpcji nieco niższe niż dotąd zakładaliśmy (bez baterii nie da się przesunąć produkcji nadwyżkowej z dnia na noc)
+- Realny self-use rate ~95-99% mimo to (z `monthly_aggregates`) bo zużycie domu pokrywa się z dziennym oknem produkcji
+- Logika "import z grid niedoszacowany przez Solaxa" z `08-phase-status.md` Fazy 2 może mieć inne wytłumaczenie niż "bateria ładowana z grid w nocy" — np. nieprawidłowe okablowanie CT albo Solax po prostu liczy `importEnergy` inaczej niż faktura PGE
 
 ---
 

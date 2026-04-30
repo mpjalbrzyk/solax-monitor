@@ -250,6 +250,23 @@ Plan inkrementalny uzgodniony 30.04.2026: 7 commitów × ~½ dnia każdy.
 - Worktree w `.claude/worktrees/xenodochial-noether-fec08f/` ma własny `package-lock.json` co powoduje warning Turbopack o multiple lockfiles — nieblokujące, można naprawić przez `turbopack.root` w `next.config.ts` jeśli przeszkadza
 - Build clean: `npm run build` → 0 warning, 0 error, statyczna prerender `/`
 
+### Side update 30.04.2026 wieczorem — model falownika + status baterii
+
+Inspekcja fizyczna falownika ujawniła dwie korekty:
+
+**1. Model falownika** — dotąd opisywany jako "X3-Hybrid-G4 10 kW" jest na fizycznej naklejce **X3-Hybrid-10.0-M** (numer modelu `9318.00083.01`, sufiks "M" = Master, cluster-capable). API Solaxa raportuje `deviceModel=14` (linia G4), więc cała dokumentacja Solax G4 jest aplikowalna — to jest po prostu wariant 10 kW z linii G4. Zaktualizowane w:
+- `00-context.md` sekcja "Co mam"
+- `04-api-spec.md` sekcja 7.8 i tabela identyfikatorów
+- `07-installation-history.md` sekcja 5
+
+Dorzucona pełna specyfikacja z naklejki: 1000V max DC, MPP 180-950V, battery 180-650V HV, 30A charge/discharge, 10kW AC (16.1A), 11kVA apparent, 10kVA off-grid, IP65, -35°C do +60°C.
+
+**2. Status baterii** — display falownika pokazuje "Bateria 0.0V". Trzy scenariusze (A: nigdy nie zainstalowana / B: odłączona / C: uszkodzona). Najprawdopodobniej A. Pytanie do Krzysztofa otwarte. Schemat bazy zostaje future-proof — kod ma być reużywalny dla klientów którzy mają baterię, plus jeśli scenariusz B/C i kiedyś naprawią, pipeline od razu zacznie zapisywać dane. Decyzja O-003 dodana do `03-decisions.md`, D-012 zrewidowane.
+
+**Konsekwencje dla bieżącej Fazy 3:** brak. Krok 1 fundament dalej stoi. Krok 3 (Overview MVP) musi mieć logikę "jeśli brak danych baterii, ukryj sekcję / pokaż 'Brak baterii'" zamiast crashować — tak czy inaczej to było potrzebne dla edge case'u "ostatnie 5 min nie poszło polling".
+
+**Notatka biznesowa:** rodzina rozważa zakup baterii + auta elektrycznego razem. Bez EV bateria sama nie ma sensu ekonomicznego (Krzysztof, 30.04.2026). Niewpływające na bieżącą implementację, ale warto pamiętać dla case study i przyszłych rekomendacji w chatbocie.
+
 ## Co jest gotowe do startu Fazy 2 (historyczne, archiwum)
 
 ## Co jest gotowe do startu Fazy 1 (historyczne, archiwum)

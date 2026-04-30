@@ -63,7 +63,7 @@ Dla Twojej referencji i hardcoded values w MVP (przed multi-tenant onboarding fl
 | plantName | `Legionow17 Site 1` |
 | inverter SN | `H34B10H7319017` |
 | dongle SN (registerNo) | `SXTGG4YRYR` |
-| deviceModel | `14` (X3-Hybrid-G4) |
+| deviceModel | `14` (linia G4, fizycznie X3-Hybrid-10.0-M, model nr `9318.00083.01`) |
 | deviceType inverter | `1` |
 | deviceType battery | `2` |
 | businessType | `1` (Residential) |
@@ -195,10 +195,10 @@ W naszym schemacie zapisujemy też te pola do `device_realtime_readings`. Dodatk
 
 Solax zwraca `token_type: "Bearer"` (dużą literą), ale w request header `Authorization: bearer ...` (małą) działa tak samo. HTTP jest case-insensitive. Bezpieczny default w Edge Function: `Bearer` z dużej.
 
-### 7.8 deviceModel = 14 dla X3-Hybrid-G4
+### 7.8 deviceModel = 14 dla linii G4 (nasz fizycznie X3-Hybrid-10.0-M)
 
-Z dokumentacji Solax (Appendix 4) potwierdzone: `deviceModel: 14` dla X3-Hybrid-G4 w businessType=1 (Residential). Inne w mapie:
-- 14: X3-Hybrid-G4 (nasz)
+Z dokumentacji Solax (Appendix 4) potwierdzone: `deviceModel: 14` dla całej linii X3-Hybrid-G4 w businessType=1 (Residential). Fizycznie nasz egzemplarz to **X3-Hybrid-10.0-M** (numer modelu `9318.00083.01`, sufiks "M" = Master, cluster-capable, działa też standalone) — to wariant 10 kW z linii G4. Cała dokumentacja G4 jest aplikowalna. Inne deviceModel w mapie:
+- 14: X3-Hybrid-G4 (nasza linia, fizycznie X3-Hybrid-10.0-M)
 - 32: X3-HYB-G4 PRO
 - 24: X3-IES (najnowsza linia)
 - 5: X3-Hybrid-G1/G2 (starsza generacja)

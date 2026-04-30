@@ -170,12 +170,14 @@ Powód anulowania: Supabase Edge Functions + pg_cron w pełni zastępują n8n dl
 
 ## D-012: Bateria niezarejestrowana — workaround przez requestSnType=1
 
-**Data:** 30 kwietnia 2026  
-**Decyzja:** Polling baterii zawsze przez SN inwertera z parametrem `requestSnType=1`. W panelu Solax Cloud bateria nie jest zarejestrowana jako osobny device (znany problem z instalacji 2023), ale dane telemetryczne dostępne są przez API.
+**Data:** 30 kwietnia 2026 (zrewidowane 30.04.2026 wieczorem — patrz O-003)  
+**Decyzja:** Polling baterii zawsze przez SN inwertera z parametrem `requestSnType=1`. Pierwotnie zakładaliśmy że w panelu Solax Cloud bateria nie jest zarejestrowana jako osobny device (sądzony "znany problem z instalacji 2023"), ale dane telemetryczne dostępne są przez API.
 
-**Uzasadnienie:** szczegóły w `04-api-spec.md` sekcja 7.1 i 9. Identyfikacja zapisu w Supabase przez `(inverter_id, device_type=2)`, nie przez `deviceSn`. Battery model i capacity wpisane ręcznie w `user_inverters` po sprawdzeniu fizycznej naklejki.
+**⚠️ Rewizja założenia (O-003):** inspekcja fizyczna falownika 30.04.2026 wieczorem ujawniła że display pokazuje "Bateria 0.0V". Możliwe że bateria nigdy nie została zainstalowana (a nie tylko niezarejestrowana). Patrz O-003 niżej. Decyzja D-012 (workaround przez `requestSnType=1`) zostaje w mocy bo i tak jest poprawnym pattern dla scenariusza w którym bateria istnieje, ale jej brak rezultatu z API trzeba traktować jako prawidłowy stan, nie błąd.
 
-**Status modelu i pojemności baterii:** TBD (Michał sprawdza naklejkę, plan B przez panel falownika fizyczny Settings → Battery, plan C przez dokumenty instalacyjne SunWise).
+**Uzasadnienie:** szczegóły w `04-api-spec.md` sekcja 7.1 i 9. Identyfikacja zapisu w Supabase przez `(inverter_id, device_type=2)`, nie przez `deviceSn`. Battery model i capacity wpisane ręcznie w `user_inverters` PO potwierdzeniu że bateria fizycznie istnieje (O-003).
+
+**Status modelu i pojemności baterii:** zablokowane przez O-003.
 
 ---
 
@@ -191,4 +193,38 @@ Powód anulowania: Supabase Edge Functions + pg_cron w pełni zastępują n8n dl
 
 ---
 
-*Ostatnia aktualizacja: 30 kwietnia 2026 (D-011 i D-012 dodane).*
+### O-003: Czy bateria istnieje fizycznie
+
+**Status:** do rozstrzygnięcia. **Blokuje implementację Fazy 4 (chatbot operacyjny), NIE blokuje Faz 0-3.**
+
+**Data wykrycia:** 30 kwietnia 2026 wieczorem (inspekcja fizyczna falownika).
+
+**Sygnały:**
+- Display falownika pokazuje "Bateria 0.0V" na porcie baterii
+- W API Solaxa bateria nie pojawia się w `page_device_info` (znany od początku, przez D-012 traktowane jako "niezarejestrowana")
+- Na zdjęciu falownika z zewnątrz nie widać kabli BAT+/BAT- ani fizycznej baterii w kadrze
+
+**Trzy scenariusze:**
+
+| | Opis | Prawdopodobieństwo |
+|---|------|---------------------|
+| A | Bateria nigdy nie została zainstalowana | wysokie |
+| B | Bateria istnieje, jest odłączona / wyłączona | średnie |
+| C | Bateria była, jest uszkodzona, falownik jej nie widzi | niskie |
+
+**Plan rozstrzygnięcia:**
+1. Pytanie do Krzysztofa: czy w lutym 2023 SunWise instalował fizyczną baterię? (zdjęcia, faktura, pamięć)
+2. Jeśli tak — sprawdzenie fizyczne (oględziny w bramie sąsiedniej, gdzie typowo Solax montuje baterię) i status połączeń
+3. Jeśli nie — formalnie scenariusz A, plan komercyjny: kupić baterię + EV jednocześnie (Michał, 30.04.2026: "tata mówi że bateria sama bez EV nie ma sensu finansowo")
+
+**Konsekwencje dla architektury (niezależnie od rozstrzygnięcia):**
+- Schemat bazy zostaje bez zmian — tabele bateryjne (`device_realtime_readings.device_type=2`, pola w `daily_aggregates`, `monthly_aggregates`) future-proof
+- W Fazie 3 dashboard ma logikę "jeśli brak danych baterii, ukryj sekcję / pokaż 'Brak baterii'", nie crash
+- W Fazie 4 chatbot musi wiedzieć czy bateria fizycznie istnieje — bez tego nie da się odpowiadać na pytania typu "ile mam w baterii"
+- Argument finansowy "ROI za 3 lata" w `07-installation-history.md` może wymagać korekty jeśli scenariusz A — bez baterii self-use rate i tak ~99% bo zużycie pokrywa się z dziennym oknem produkcji, ale nadwyżka nie jest magazynowana, idzie do grid za RCEm
+
+**Notatka biznesowa (30.04.2026):** rodzina rozważa zakup baterii pod warunkiem zakupu auta elektrycznego — bez EV bateria sama nie ma sensu ekonomicznego. To otwiera ścieżkę "Solax Monitor + EV charger" dla case study, ale nie wpływa na bieżącą implementację.
+
+---
+
+*Ostatnia aktualizacja: 30 kwietnia 2026 wieczorem (O-003 dodane, D-012 zrewidowane).*

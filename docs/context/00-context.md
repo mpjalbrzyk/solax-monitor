@@ -14,16 +14,35 @@ Pozycjonuję się jako praktyk: testuję AI i automatyzację u siebie zanim pole
 
 ## Co mam — moja instalacja fotowoltaiczna
 
-**Falownik: Solax X3-Hybrid-G4 10 kW** (czwarta generacja, najnowsza dostępna w momencie instalacji), zainstalowany 23 lutego 2023. Moc instalacji PV: **8 kWp** (18-20 paneli Hyundai HiE-S400VG 400W). Bateria magazynująca podłączona przez BMS (model i kapacitet do potwierdzenia). Komunikacja przez WiFi dongle WIFI3.0, dane synchronizowane z Solax Cloud co 5 minut.
+**Falownik: Solax X3-Hybrid-10.0-M** (linia G4, sufiks "M" = Master, cluster-capable, działa też standalone), zainstalowany 23 lutego 2023. Numer modelu wewnętrzny `9318.00083.01`. Moc instalacji PV: **8 kWp** (18-20 paneli Hyundai HiE-S400VG 400W). Komunikacja przez WiFi dongle WIFI3.0, dane synchronizowane z Solax Cloud co 5 minut.
 
-**Wykonawca instalacji:** SunWise Energy Sp. z o.o. (Warszawa, Bonifraterska 17, tel. 502 919 391). Pierwsza koncepcja z 2021 zakładała SolarEdge SE7K bez baterii, w trakcie zmieniono na Solax hybrydowy z baterią. Detale w `07-installation-history.md`.
+API Solax mapuje ten falownik jako `deviceModel=14` (linia G4 dla businessType=1 Residential), więc cała dokumentacja Solax G4 jest aplikowalna. Fizyczne oznaczenie produktu z naklejki jest jednak inne niż dotąd opisywaliśmy — to **X3-Hybrid-10.0-M**, nie "X3-Hybrid-G4 10 kW".
+
+**Specyfikacja z naklejki falownika (zdjęcie 30.04.2026):**
+- Max DC Voltage: 1000V, MPP Range: 180-950V
+- Max DC Current Input A/B: 26A / 14A
+- Battery Voltage Range: 180-650V (HV battery)
+- Max Charge/Discharge: 30A / 30A
+- AC Output: 10000W (16.1A), Apparent: 11000VA
+- Off-grid: 10000VA, 400/230V
+- IP65, temp -35°C do +60°C
+
+**Bateria — status do potwierdzenia (30.04.2026).** Display falownika pokazuje "Bateria 0.0V" na porcie baterii. Trzy możliwe scenariusze (do rozstrzygnięcia z Krzysztofem):
+- **A** (najbardziej prawdopodobny): bateria nigdy nie została zainstalowana. SunWise dał tylko falownik hybrydowy bez baterii. Mój Prąd 4.0 mógł dać 5000 PLN za sam hybrydowy falownik
+- **B**: bateria fizycznie istnieje, ale jest odłączona / wyłączona
+- **C**: bateria była, jest uszkodzona, falownik jej nie widzi
+
+Patrz O-003 w `03-decisions.md`. Schemat bazy (`device_realtime_readings.device_type=2`, pola w `daily_aggregates`) zostaje future-proof na wypadek scenariusza B/C lub przyszłego zakupu baterii.
+
+**Wykonawca instalacji:** SunWise Energy Sp. z o.o. (Warszawa, Bonifraterska 17, tel. 502 919 391). Pierwsza koncepcja z 2021 zakładała SolarEdge SE7K bez baterii, w trakcie zmieniono falownik na Solax X3-Hybrid-10.0-M (hybrydowy, gotowy pod baterię). Czy bateria została faktycznie zainstalowana — TBD (patrz wyżej). Detale w `07-installation-history.md`.
 
 **Identyfikatory urządzeń (z API i panelu Solax):**
 - Device SN (falownik): `H34B10H7319017`
 - Registration No. (dongle WiFi): `SXTGG4YRYR`
 - Plant ID (Solax Cloud): `1613529907775754244`
 - Plant name w Solax Cloud: `Legionow17 Site 1`
-- deviceModel: 14 (X3-Hybrid-G4 dla businessType=1 Residential)
+- deviceModel: 14 (linia G4 dla businessType=1 Residential, fizycznie X3-Hybrid-10.0-M)
+- Model number (z naklejki): `9318.00083.01`
 
 **Identyfikatory umowy i licznika (z faktury PGE):**
 - Adres: Legionów 17, 05-091 Ząbki
@@ -37,7 +56,8 @@ Pozycjonuję się jako praktyk: testuję AI i automatyzację u siebie zanim pole
 
 **Koszt instalacji:**
 - Brutto z przelewów: **40 000 PLN** (3 przelewy do SunWise listopad 2022 do luty 2023)
-- Po dotacjach (założenie Mój Prąd 4.0): **~30 000 PLN netto** (TBD — wymaga potwierdzenia od Krzysztofa)
+- Dotacja Mój Prąd 4.0: **16 000 PLN** (potwierdzona)
+- Realny koszt netto po dotacji: **24 000 PLN** (potwierdzony 30.04.2026)
 - Detale w `07-installation-history.md`
 
 **Statystyki na 29 kwietnia 2026 (z API Solax):**
