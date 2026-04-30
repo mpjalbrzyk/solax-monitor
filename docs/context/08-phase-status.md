@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 30 kwietnia 2026, koniec Fazy 0.
+**Ostatnia aktualizacja:** 30 kwietnia 2026, koniec Fazy 1.
 
 ---
 
@@ -11,8 +11,8 @@
 | Faza | Tytuł | Status | Czas |
 |------|-------|--------|------|
 | 0 | Discovery i setup | ✅ DONE (30.04.2026) | ~1 dzień |
-| 1 | Pipeline danych | 🟡 NEXT | 1 dzień plan |
-| 2 | Backfill historyczny | ⏳ pending | pół dnia |
+| 1 | Pipeline danych | ✅ DONE (30.04.2026) | ~1 dzień |
+| 2 | Backfill historyczny | 🟡 NEXT | pół dnia plan |
 | 3 | Dashboard webowy | ⏳ pending | 2-3 dni |
 | 4 | Chatbot operacyjny | ⏳ pending | 1 dzień |
 | 5 | Chatbot techniczny (RAG) | ⏳ pending | 1 dzień |
@@ -117,7 +117,46 @@ To jeden z kluczowych mechanizmów pipeline'u, ważny do zrozumienia.
 
 ---
 
-## Co jest gotowe do startu Fazy 1
+---
+
+## Faza 1 — co zostało zrobione
+
+Pięć commitów (5-9), wszystkie pushed do `main`. Pipeline danych żyje: cron co 5 min ściąga z Solaxa do Supabase, alerty pollowane co 15 min, daily aggregates rozliczane raz dziennie z kalkulacjami finansowymi PGE G11.
+
+| Commit | Hash | Treść |
+|--------|------|-------|
+| 5 | `6dfc42a` | `refresh-token` real impl + `_shared/solax-client.ts` z `solaxAuthRequest` + `verify_jwt = false` per funkcja + seed Michała w Supabase Auth + insert `user_inverters` + insert `api_credentials`. End-to-end OAuth pipeline confirmed working: smoke test odebrał access_token z 30-dniowym TTL, scope `API_Telemetry_V2 ...` |
+| 6 | `e5a9ed5` | `poll-realtime` real impl + `solaxFetch` z auto-retry na 10402 + sign-convention helpers (`normalizeBatteryPower` flipuje znak vs Solax). Pierwszy realny poll: total_yield=17716.96 zgodne z `00-context.md`, idle gridPower -6W zgodne z api-spec sec 7.5, battery deviceSn=null poprawnie obsłużony |
+| 7 | `6def7f0` | `poll-alarms` real impl. Smoke test: 0 alarmów (zgodnie ze stanem instalacji Michała) |
+| 8 | `3e45602` | Seed taryfy PGE G11 (zones brutto 1.0991 PLN/kWh + RCEm history 20 miesięcy z `06-tariff.md`) + seed `historical_yearly_consumption` 2015-2025 + `daily-aggregates` real impl. Smoke test: yield=0, import=0.08, cost=0.09 PLN, math zgodne (0.08 × 1.0991 ≈ 0.09 brutto) |
+| 9 | TBD | Migracja `enable_phase1_crons.sql`: cron schedule dla 4 jobów (refresh-token co 25 dni 03:00 UTC, poll-realtime co 5 min, poll-alarms co 15 min, daily-aggregates daily 01:00 UTC). Helper SQL `schedule_edge_function(name, cron, path)` deduplikuje przez `cron.unschedule` przed `cron.schedule`. Vault entry `service_role_jwt` dla pg_cron Bearer header. Pipeline poszedł na żywo |
+
+### Stan środowiska po Fazie 1
+
+- **Auth flow Solax:** access_token w `api_credentials` ważny do 2026-05-30. Auto-refresh przez `solaxFetch` jeśli złapie code 10402, plus zapasowy cron `refresh-token` co 25 dni
+- **Polling pipeline:** cron co 5 min wywołuje `poll-realtime`, dane wpadają do `plant_realtime_readings` + `device_realtime_readings`. Multi-tenant ready (iteracja po wszystkich aktywnych user_inverters), per-inverter error isolation
+- **Alarms pipeline:** cron co 15 min wywołuje `poll-alarms`. Trigger `send-alert` przy nowych alarmach level >= 2, ale `send-alert` jest jeszcze stub (Resend dochodzi w Fazie 6) — `notified_at` jest jednak ustawiane żeby unikać re-fire
+- **Daily aggregates:** cron 01:00 UTC liczy poprzedni dzień (yesterday w Europe/Warsaw). Algorytm finansowy z `06-tariff.md` sec 6 zaaplikowany. Sygnatura optional body `{date?, inverter_id?}` pozwala na manual replay
+- **Tariff:** PGE G11 effective_from 2026-01-01, brutto 1.0991 PLN/kWh, opłaty stałe 43.18 PLN/m brutto, RCEm history 2023 + 2025-07 do 2026-02 (luka 2024-01 do 2025-06 do dociągnięcia z PSE w Fazie 6)
+- **Historical baseline:** 10 lat zużycia z arkusza brata + ostatni rok z PGE rocznej. Dostępne dla chatbota i sekcji "życie przed PV" w dashboardzie
+
+### Decyzje techniczne podjęte w trakcie Fazy 1
+
+- **`verify_jwt = false`** dla wszystkich 8 funkcji. Wszystkie są internal cron jobs / dev curl smoke tests, brak user-facing endpointów. Plus nowe API keys Supabase (sb_publishable_, sb_secret_) i tak nie są JWT, więc legacy verify_jwt = true zablokowałby też cron triggery z Vault. Decyzja czysta dla naszego MVP, w Fazie 7 (multi-tenant SaaS) dorzucimy shared-secret header per funkcja jeśli okaże się potrzebne
+- **Plain text client_secret w `api_credentials.client_secret_encrypted`** — pole nazwowo sugeruje encryption, ale na MVP single-user trzymamy plaintext. RLS chroni dostęp (tylko service role + sam user). Proper encryption-at-rest (pgcrypto / Vault-keyed) odłożone do Fazy 7
+- **Sample integration battery flow** zakłada równe 5-min interwały. W praktyce cron może chybić jednorazowo; błąd liczbowy znikomy w skali dziennej. W Fazie 2 backfill granularny może wymagać uwzględnienia rzeczywistych odstępów między próbkami
+- **Konwencja znaków zafiksowana w jednym miejscu** (`_shared/solax-client.ts` `normalizeBatteryPower` + `passThroughPower`). Każdy nowy handler który czyta `*_power_w` z Solaxa musi importować te helpery — nie ma mowy o "znormalizuj sobie inline"
+
+---
+
+## Co jest gotowe do startu Fazy 2
+
+- Tabele `monthly_aggregates` i `daily_aggregates` istnieją, RLS aktywne
+- `plant/energy/get_stat_data` endpoint Solaxa potwierdzony w api-spec sec 4.3, format zwracanych payloadów rozumiemy
+- `_shared/solax-client.ts` ma `solaxFetch` który obsłuży endpoint `/openapi/v2/plant/energy/get_stat_data` (POST + JSON body) — drobne rozszerzenie dla Fazy 2
+- Token w `api_credentials` świeży, scope obejmuje `API_Telemetry_V2`
+
+## Co jest gotowe do startu Fazy 1 (historyczne, archiwum)
 
 - `.env.local` ma `SOLAX_CLIENT_ID` i `SOLAX_CLIENT_SECRET` (do testów lokalnych przez Node)
 - Supabase Vault ma te same sekrety (do użycia przez Edge Functions)
