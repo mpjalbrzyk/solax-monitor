@@ -12,13 +12,24 @@ import {
   getHistoricalPgeInvoices,
 } from "@/lib/data/queries";
 import { PL_MONTH_SHORT, todayWarsaw } from "@/lib/date";
-import { formatKwh, formatMwh, formatPln } from "@/lib/format";
+import { formatKwh, formatMonthYear, formatMwh, formatPln } from "@/lib/format";
 import { GLOSSARY } from "@/lib/copy/glossary";
 
 export const metadata = { title: "Rok do roku" };
 export const dynamic = "force-dynamic";
 
-export default async function YearlyPage() {
+function isValidYear(s: string | undefined): s is string {
+  return !!s && /^\d{4}$/.test(s);
+}
+
+export default async function YearlyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>;
+}) {
+  const params = await searchParams;
+  const filterYear = isValidYear(params.year) ? params.year : null;
+
   const inverter = await getActiveInverter();
   if (!inverter) {
     return (
@@ -164,9 +175,49 @@ export default async function YearlyPage() {
 
   return (
     <>
-      <DashboardHeader title="Rok do roku" recordedAt={null} />
+      <DashboardHeader
+        title={filterYear ? `Rok ${filterYear}` : "Rok do roku"}
+        recordedAt={null}
+      />
 
-      {commentary && (
+      {/* === Year filter pills === */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <a
+          href="/yearly"
+          className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+            !filterYear
+              ? "bg-[var(--pv)]/20 text-foreground font-semibold"
+              : "bg-white/40 hover:bg-white/60 text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Wszystkie lata
+        </a>
+        {years.slice().reverse().map((year) => (
+          <a
+            key={year}
+            href={`/yearly?year=${year}`}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+              filterYear === String(year)
+                ? "bg-[var(--pv)]/20 text-foreground font-semibold"
+                : "bg-white/40 hover:bg-white/60 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {year}
+          </a>
+        ))}
+      </div>
+
+      {/* === Single-year drill-down (when filter active) === */}
+      {filterYear && (
+        <SingleYearDrilldown
+          year={filterYear}
+          pgeInvoices={pgeInvoices}
+          pvByYearMonth={pvByYearMonth}
+          yearTotals={yearTotals}
+        />
+      )}
+
+      {commentary && !filterYear && (
         <Card className="glass mb-4">
           <CardContent className="py-4 px-5 sm:px-6 text-sm leading-relaxed">
             {commentary}
@@ -386,4 +437,107 @@ function buildYearlyCommentary(args: {
   }
 
   return lines.length > 0 ? lines.join(" ") : null;
+}
+
+function SingleYearDrilldown({
+  year,
+  pgeInvoices,
+  pvByYearMonth,
+  yearTotals,
+}: {
+  year: string;
+  pgeInvoices: import("@/lib/data/types").HistoricalPgeInvoice[];
+  pvByYearMonth: Map<string, number>;
+  yearTotals: Map<
+    number,
+    {
+      pv_kwh: number;
+      pv_source: "solax" | "missing";
+      export_kwh: number;
+      import_kwh: number;
+      deposit_pln: number;
+    }
+  >;
+}) {
+  const t = yearTotals.get(Number(year));
+  const monthsThisYear = pgeInvoices
+    .filter((i) => i.month_date.startsWith(year))
+    .sort((a, b) => a.month_date.localeCompare(b.month_date));
+
+  return (
+    <Card className="glass mb-4">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium">
+          Drążenie w rok {year}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Per-miesiąc dane z faktur PGE plus produkcja PV gdzie Solax ma
+          historię (od 04.2025).
+        </p>
+      </CardHeader>
+      <CardContent className="px-0 sm:px-6">
+        {t && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-5 sm:px-0 mb-4 text-sm">
+            <Stat label="Produkcja PV" value={t.pv_source === "solax" ? formatKwh(t.pv_kwh, 0) : "brak"} />
+            <Stat label="Eksport" value={formatKwh(t.export_kwh, 0)} />
+            <Stat label="Pobór" value={formatKwh(t.import_kwh, 0)} />
+            <Stat label="Depozyt" value={formatPln(t.deposit_pln)} />
+          </div>
+        )}
+        <div className="overflow-x-auto -mx-5 sm:mx-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-muted-foreground border-b border-zinc-200/60">
+                <th className="px-5 sm:px-3 py-2 font-medium">Miesiąc</th>
+                <th className="px-3 py-2 font-medium text-right">PV produkcja</th>
+                <th className="px-3 py-2 font-medium text-right">Eksport</th>
+                <th className="px-3 py-2 font-medium text-right">Pobór</th>
+                <th className="px-5 sm:px-3 py-2 font-medium text-right">Depozyt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthsThisYear.map((row) => {
+                const pv = pvByYearMonth.get(row.month_date.slice(0, 7));
+                return (
+                  <tr key={row.month_date} className="border-b border-zinc-100/60 hover:bg-white/30">
+                    <td className="px-5 sm:px-3 py-2">
+                      <a
+                        href={`/monthly?month=${row.month_date.slice(0, 7)}`}
+                        className="hover:underline"
+                      >
+                        {formatMonthYear(row.month_date)}
+                      </a>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {pv != null && pv > 0 ? formatKwh(pv, 0) : <span className="text-muted-foreground">brak</span>}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatKwh(row.grid_export_kwh, 0)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatKwh(row.grid_import_kwh, 0)}
+                    </td>
+                    <td className="px-5 sm:px-3 py-2 text-right tabular-nums">
+                      {formatPln(row.deposit_value_pln)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-base font-semibold tabular-nums mt-0.5">{value}</div>
+    </div>
+  );
 }

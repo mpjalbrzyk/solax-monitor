@@ -22,6 +22,7 @@ import {
 } from "@/lib/date";
 import { formatKwh, formatMonthYear, formatPln, formatDateShort } from "@/lib/format";
 import { GLOSSARY } from "@/lib/copy/glossary";
+import { Card as CardK, CardContent as CardContentK } from "@/components/ui/card";
 
 export const metadata = { title: "Miesiąc" };
 export const dynamic = "force-dynamic";
@@ -157,10 +158,20 @@ export default async function MonthlyPage({
       {commentary && (
         <Card className="glass mb-4">
           <CardContent className="py-4 px-5 sm:px-6 text-sm leading-relaxed">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium block mb-1">
+              Co się działo w tym miesiącu
+            </span>
             {commentary}
           </CardContent>
         </Card>
       )}
+
+      {/* === Kluczowe wskaźniki: YoY + best/worst months in current year === */}
+      <KeyIndicators
+        month={month}
+        currentYear={today.slice(0, 4)}
+        allInvoices={allInvoices}
+      />
 
       {hasSolaxDaily ? (
         <Card className="glass mb-4">
@@ -379,4 +390,164 @@ function buildMonthlyCommentary(args: CommentaryArgs): string | null {
   }
 
   return lines.length > 0 ? lines.join(" ") : null;
+}
+
+function KeyIndicators({
+  month,
+  currentYear,
+  allInvoices,
+}: {
+  month: string;
+  currentYear: string;
+  allInvoices: import("@/lib/data/types").HistoricalPgeInvoice[];
+}) {
+  // Months in current calendar year with data
+  const thisYearMonths = allInvoices
+    .filter((i) => i.month_date.startsWith(currentYear))
+    .sort((a, b) =>
+      Number(b.grid_export_kwh) - Number(a.grid_export_kwh),
+    );
+  if (thisYearMonths.length === 0) return null;
+
+  const best = thisYearMonths[0];
+  const worst = thisYearMonths[thisYearMonths.length - 1];
+  const avgExport =
+    thisYearMonths.reduce((s, i) => s + Number(i.grid_export_kwh), 0) /
+    thisYearMonths.length;
+  const avgImport =
+    thisYearMonths.reduce((s, i) => s + Number(i.grid_import_kwh), 0) /
+    thisYearMonths.length;
+
+  // Compare current month vs same month previous year
+  const [y, m] = month.split("-");
+  const prevYearKey = `${Number(y) - 1}-${m}`;
+  const prevYearRow = allInvoices.find((i) =>
+    i.month_date.startsWith(prevYearKey),
+  );
+  const currentRow = allInvoices.find((i) => i.month_date.startsWith(month));
+
+  return (
+    <CardK className="glass mb-4">
+      <CardContentK className="px-5 sm:px-6 py-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+            Kluczowe wskaźniki w roku {currentYear}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {thisYearMonths.length} mies. z danymi
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Najlepszy miesiąc
+            </div>
+            <div className="text-base font-semibold tabular-nums mt-0.5">
+              {formatKwh(best.grid_export_kwh, 0)}
+            </div>
+            <div className="text-[11px] text-muted-foreground tabular-nums">
+              {formatMonthYear(best.month_date)} · eksport
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Najsłabszy miesiąc
+            </div>
+            <div className="text-base font-semibold tabular-nums mt-0.5">
+              {formatKwh(worst.grid_export_kwh, 0)}
+            </div>
+            <div className="text-[11px] text-muted-foreground tabular-nums">
+              {formatMonthYear(worst.month_date)} · eksport
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Średni eksport/mies.
+            </div>
+            <div className="text-base font-semibold tabular-nums mt-0.5">
+              {formatKwh(avgExport, 0)}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              do sieci PGE
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Średni pobór/mies.
+            </div>
+            <div className="text-base font-semibold tabular-nums mt-0.5">
+              {formatKwh(avgImport, 0)}
+            </div>
+            <div className="text-[11px] text-muted-foreground">z sieci PGE</div>
+          </div>
+        </div>
+
+        {currentRow && prevYearRow && (
+          <div className="mt-4 pt-3 border-t border-zinc-200/40 text-sm leading-relaxed">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium block mb-1">
+              Porównanie z rokiem temu
+            </span>
+            <YoyComparison current={currentRow} previous={prevYearRow} />
+          </div>
+        )}
+      </CardContentK>
+    </CardK>
+  );
+}
+
+function YoyComparison({
+  current,
+  previous,
+}: {
+  current: import("@/lib/data/types").HistoricalPgeInvoice;
+  previous: import("@/lib/data/types").HistoricalPgeInvoice;
+}) {
+  const exportDelta =
+    Number(previous.grid_export_kwh) > 0
+      ? ((Number(current.grid_export_kwh) - Number(previous.grid_export_kwh)) /
+          Number(previous.grid_export_kwh)) *
+        100
+      : 0;
+  const importDelta =
+    Number(previous.grid_import_kwh) > 0
+      ? ((Number(current.grid_import_kwh) - Number(previous.grid_import_kwh)) /
+          Number(previous.grid_import_kwh)) *
+        100
+      : 0;
+
+  return (
+    <p className="text-foreground/85">
+      Eksport:{" "}
+      <strong className="tabular-nums">
+        {formatKwh(current.grid_export_kwh, 0)}
+      </strong>{" "}
+      vs {formatKwh(previous.grid_export_kwh, 0)} rok temu —{" "}
+      <span
+        className={
+          exportDelta >= 0
+            ? "text-[var(--savings-foreground)] font-medium"
+            : "text-[var(--grid-import)] font-medium"
+        }
+      >
+        {exportDelta >= 0 ? "+" : ""}
+        {exportDelta.toFixed(0)}%
+      </span>
+      . Pobór:{" "}
+      <strong className="tabular-nums">
+        {formatKwh(current.grid_import_kwh, 0)}
+      </strong>{" "}
+      vs {formatKwh(previous.grid_import_kwh, 0)} rok temu —{" "}
+      <span
+        className={
+          importDelta <= 0
+            ? "text-[var(--savings-foreground)] font-medium"
+            : "text-[var(--grid-import)] font-medium"
+        }
+      >
+        {importDelta >= 0 ? "+" : ""}
+        {importDelta.toFixed(0)}%
+      </span>
+      .
+    </p>
+  );
 }

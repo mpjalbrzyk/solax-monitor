@@ -101,14 +101,40 @@ export default async function DailyPage({
         }
       />
 
-      <DateNav
-        basePath="/daily"
-        prevHref={`/daily?date=${prevDate}`}
-        nextHref={canGoForward ? `/daily?date=${nextDate}` : null}
-        current={formatDateLong(date)}
-        todayHref={`/daily?date=${today}`}
-        showToday={!isToday}
-      />
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <DateNav
+          basePath="/daily"
+          prevHref={`/daily?date=${prevDate}`}
+          nextHref={canGoForward ? `/daily?date=${nextDate}` : null}
+          current={formatDateLong(date)}
+        />
+        {!isToday && (
+          <a
+            href={`/daily?date=${today}`}
+            className="text-xs px-3 py-1.5 rounded-full bg-white/40 hover:bg-white/60 transition-colors text-foreground"
+          >
+            Dziś
+          </a>
+        )}
+        <a
+          href={`/daily?date=${shiftDateString(today, -1)}`}
+          className="text-xs px-3 py-1.5 rounded-full bg-white/40 hover:bg-white/60 transition-colors text-muted-foreground hover:text-foreground"
+        >
+          Wczoraj
+        </a>
+        <a
+          href={`/daily?date=${shiftDateString(today, -7)}`}
+          className="text-xs px-3 py-1.5 rounded-full bg-white/40 hover:bg-white/60 transition-colors text-muted-foreground hover:text-foreground"
+        >
+          Tydzień temu
+        </a>
+        <a
+          href={`/daily?date=${shiftDateString(today, -30)}`}
+          className="text-xs px-3 py-1.5 rounded-full bg-white/40 hover:bg-white/60 transition-colors text-muted-foreground hover:text-foreground"
+        >
+          Miesiąc temu
+        </a>
+      </div>
 
       {dailyAgg && (
         <Card className="glass mb-4">
