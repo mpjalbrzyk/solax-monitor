@@ -4,10 +4,12 @@ import { DashboardHeader } from "@/components/dashboard/header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { InfoHint } from "@/components/dashboard/info-hint";
 import { GLOSSARY } from "@/lib/copy/glossary";
+import { BreakEvenChart } from "@/components/charts/break-even-chart";
+import { AvoidedExportDonut } from "@/components/charts/avoided-export-donut";
 import {
-  ForecastChart,
-  type ForecastPoint,
-} from "@/components/charts/forecast-chart";
+  buildBreakEvenCurve,
+  buildRoiScenarios,
+} from "@/lib/derive/forecasts";
 import { CheckCircle2, Wallet, Sun, ArrowUpFromLine, Zap, Receipt, Clock } from "lucide-react";
 import {
   getActiveInverter,
@@ -99,56 +101,45 @@ export default async function FinancialPage() {
   const totalActualPaid = pgeActual.totalActualCost;
   const totalDepositPln = pgeActual.totalDepositPln;
 
-  // === BREAK-EVEN ===
+  // === BREAK-EVEN — TWO SCENARIOS ===
   const breakEvenTarget = Number(inverter.installation_cost_pln ?? 24000);
   const subsidy = Number(inverter.installation_subsidy_pln ?? 0);
   const grossPaid = breakEvenTarget + subsidy;
 
-  // Use the better estimate available — PGE-actual if we have post-PV history,
-  // otherwise Solax-reported.
-  const bestEstimateNet =
-    pgeActualSavings > solaxNet ? pgeActualSavings : solaxNet;
-  const progressPct = breakEvenTarget > 0
-    ? Math.min((bestEstimateNet / breakEvenTarget) * 100, 100)
-    : 0;
-  const isReturned = bestEstimateNet >= breakEvenTarget;
-
-  // === FORECAST ===
-  // Trend: średnie roczne savings na bazie ostatnich 365 dni daily_aggregates.
-  const recentNet = lastYearDailies.reduce(
+  const solaxAnnualRate = lastYearDailies.reduce(
     (s, d) => s + (Number(d.net_balance_pln) || 0),
     0,
   );
-  const projectedAnnualNet = recentNet > 0 ? recentNet : bestEstimateNet / Math.max(yearsSinceInstall, 0.1);
 
-  const currentYear = Number(today.slice(0, 4));
-  const startYear = installDate ? installDate.getFullYear() : currentYear - 3;
-  const forecastData: ForecastPoint[] = [];
-  let cumulativeFor = 0;
-  for (let year = startYear; year <= 2035; year++) {
-    const isProjection = year > currentYear;
-    if (year === startYear) {
-      // Zacznij od momentu instalacji (luty 2023)
-      cumulativeFor = 0;
-    } else if (year <= currentYear) {
-      // Lata historyczne: użyj pgeActual prorated
-      cumulativeFor = (bestEstimateNet * (year - startYear + 1)) /
-        Math.max(yearsSinceInstall, 1);
-    } else {
-      // Prognoza: dorzuć projected annual net
-      cumulativeFor += projectedAnnualNet;
-    }
-    forecastData.push({
-      yearLabel: String(year),
-      cumulative_pln: Math.round(cumulativeFor),
-      isProjection,
-    });
-  }
+  const scenarios = buildRoiScenarios({
+    installationDate: installDate ?? new Date("2023-02-17"),
+    installationCostPln: breakEvenTarget,
+    solaxCumulativeNet: solaxNet,
+    solaxAnnualRate,
+    pgeCumulativeSavings: pgeActualSavings,
+  });
 
-  // Find break-even year visually
-  const breakEvenYear = forecastData.find(
-    (p) => p.cumulative_pln >= breakEvenTarget,
-  )?.yearLabel;
+  // Best-estimate (used for hero) — primary is real, fallback to solax
+  const bestEstimateNet = scenarios.real.cumulativeNowPln > 0
+    ? scenarios.real.cumulativeNowPln
+    : scenarios.solax.cumulativeNowPln;
+  const progressPct = scenarios.real.progressPct;
+  const isReturned = scenarios.real.isReturned || scenarios.solax.isReturned;
+
+  // Break-even chart curve
+  const breakEvenCurve = buildBreakEvenCurve({
+    installationDate: installDate ?? new Date("2023-02-17"),
+    installationCostPln: breakEvenTarget,
+    scenarios,
+    yearsAhead: 8,
+  });
+
+  // For backward-compat with later UI (hero comment, forecast section labels)
+  const projectedAnnualNet = scenarios.real.annualRatePln;
+  const breakEvenYear =
+    scenarios.real.breakEvenYear !== Infinity
+      ? String(scenarios.real.breakEvenYear)
+      : null;
 
   // === LAST 12 MONTHS TABLE ===
   // Aggregate dailies into months
@@ -315,27 +306,118 @@ export default async function FinancialPage() {
         />
       </section>
 
-      {/* === Forecast === */}
+      {/* === Break-even chart Tesla style + Avoided/Export donut === */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+        <Card className="glass lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">
+              Próg rentowności — od CAPEX do zwrotu
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Krzywa zaczyna od −{(breakEvenTarget / 1000).toFixed(0)} 000 zł
+              (koszt instalacji po dotacji Mój Prąd) i pnie się ku górze. Punkt
+              przecięcia osi 0 = całkowity zwrot.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <BreakEvenChart
+              data={breakEvenCurve}
+              installationCostPln={breakEvenTarget}
+              subsidyPln={subsidy}
+            />
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+              <div className="flex items-start gap-2">
+                <span className="size-2 rounded-full bg-[var(--savings)] mt-1 shrink-0" />
+                <div>
+                  <div className="font-medium">Realny tempo (PGE)</div>
+                  <div className="text-muted-foreground tabular-nums">
+                    {formatPln(scenarios.real.annualRatePln)}/rok · próg{" "}
+                    {scenarios.real.breakEvenYear !== Infinity
+                      ? scenarios.real.breakEvenYear
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="size-2 rounded-full bg-[var(--pv)] mt-1 shrink-0" />
+                <div>
+                  <div className="font-medium">Solax tempo</div>
+                  <div className="text-muted-foreground tabular-nums">
+                    {formatPln(scenarios.solax.annualRatePln)}/rok · próg{" "}
+                    {scenarios.solax.breakEvenYear !== Infinity
+                      ? scenarios.solax.breakEvenYear
+                      : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Donut: Avoided Costs vs Export Revenues */}
+        <Card className="glass">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              Skąd te pieniądze
+              <InfoHint>
+                Autokonsumpcja = energia ze słońca zużyta od razu w domu
+                (pieniądze które nie poszły do PGE). Eksport = nadwyżka
+                wysłana do sieci, rozliczana po RCEm/RCE w net-billingu.
+                Autokonsumpcja jest zwykle 5-10× wartościowsza niż eksport.
+              </InfoHint>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AvoidedExportDonut
+              avoidedPln={solaxSavings}
+              exportPln={solaxEarnings}
+              size={160}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* === Wyjaśnienie tempa: Solax vs Realny === */}
       <Card className="glass mb-4">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">
-            Prognoza bilansu do 2035
+            Czym się różnią dwa scenariusze tempa?
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Na bazie tempa z ostatnich 365 dni — prosta ekstrapolacja
-            liniowa, bez zakładania dalszego wzrostu cen energii
-          </p>
         </CardHeader>
-        <CardContent>
-          <ForecastChart data={forecastData} breakEvenPln={breakEvenTarget} />
-          {projectedAnnualNet > 0 && (
-            <div className="mt-3 text-xs text-muted-foreground">
-              Tempo: ~{formatPln(projectedAnnualNet)} rocznie · 5 lat naprzód:{" "}
-              <strong className="text-foreground">
-                +{formatPln(projectedAnnualNet * 5)}
-              </strong>
+        <CardContent className="space-y-3 text-sm leading-relaxed">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 px-4 py-3 rounded-xl bg-[var(--savings)]/8 border border-[var(--savings)]/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="size-2 rounded-full bg-[var(--savings)]" />
+                <span className="font-semibold">Realny tempo (PGE)</span>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Liczone z 37 zwalidowanych faktur PGE × historyczne ceny G11.
+                Bierze hipotetyczny koszt życia bez PV (na bazie zużycia
+                rodziny 2015-2022) minus to co faktycznie zapłaciliście PGE
+                po montażu, plus depozyty z eksportu. To pieniądze które
+                fizycznie nie poszły do PGE — najbliższe prawdy.
+              </p>
             </div>
-          )}
+            <div className="flex-1 px-4 py-3 rounded-xl bg-[var(--pv)]/8 border border-[var(--pv)]/20">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="size-2 rounded-full bg-[var(--pv)]" />
+                <span className="font-semibold">Solax tempo</span>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Liczone z bieżących pomiarów inwertera (daily_aggregates).
+                Solax raportuje import z sieci zaniżony (~89× mniej niż
+                faktura PGE), więc bilans wychodzi optymistycznie. Pokazuje
+                "ile teoretycznie powinno być" — ale realnie dom kupuje więcej
+                prądu z sieci niż Solax to widzi.
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Dlaczego oba? Solax pomaga zrozumieć potencjał instalacji, realny
+            pokazuje faktyczne pieniądze. Zwykle prawda jest gdzieś pomiędzy,
+            bliżej Realnego.
+          </p>
         </CardContent>
       </Card>
 
