@@ -1,18 +1,193 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/dashboard/header";
-import { Card, CardContent } from "@/components/ui/card";
+import { DateNav } from "@/components/dashboard/date-nav";
+import { KpiTile } from "@/components/dashboard/kpi-tile";
+import {
+  DailyLineChart,
+  type DailyChartPoint,
+} from "@/components/charts/daily-line-chart";
+import { Sun, Zap, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import {
+  getActiveInverter,
+  getDailyAggregates,
+  getDeviceReadingsRange,
+} from "@/lib/data/queries";
+import {
+  todayWarsaw,
+  shiftDateString,
+  warsawDayBoundsIso,
+  warsawHourLabel,
+} from "@/lib/date";
+import { formatDateLong, formatKwh, formatPln, formatPower } from "@/lib/format";
 
 export const metadata = { title: "Dziś" };
 export const dynamic = "force-dynamic";
 
-export default function DailyPage() {
+export default async function DailyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
+  const params = await searchParams;
+  const today = todayWarsaw();
+  const date = isValidDate(params.date) ? params.date! : today;
+
+  const inverter = await getActiveInverter();
+
+  if (!inverter) {
+    return (
+      <>
+        <DashboardHeader title="Dziś" recordedAt={null} />
+        <Card className="glass">
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            Brak instalacji w bazie.
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
+
+  const { fromIso, toIso } = warsawDayBoundsIso(date);
+
+  const [inverterReadings, batteryReadings, todayAggArr] = await Promise.all([
+    getDeviceReadingsRange(inverter.id, 1, fromIso, toIso),
+    getDeviceReadingsRange(inverter.id, 2, fromIso, toIso),
+    getDailyAggregates(inverter.id, date, date),
+  ]);
+
+  const dailyAgg = todayAggArr[0] ?? null;
+
+  // Stitch inverter + battery samples by recorded_at (5-min cadence,
+  // typically same timestamps). Battery may be empty (scenario A).
+  const batteryByTs = new Map(
+    batteryReadings.map((r) => [
+      r.recorded_at,
+      Number(r.charge_discharge_power_w ?? 0),
+    ]),
+  );
+
+  const chartData: DailyChartPoint[] = inverterReadings.map((r) => {
+    const pv_w = Math.max(Number(r.total_active_power_w ?? 0), 0);
+    const grid_w = Number(r.grid_power_w ?? 0);
+    const battery_w = batteryByTs.get(r.recorded_at) ?? 0;
+    const load_w = Math.max(pv_w + battery_w - grid_w, 0);
+    return {
+      ts: r.recorded_at,
+      hourLabel: warsawHourLabel(r.recorded_at),
+      pv_w,
+      load_w,
+      grid_w,
+    };
+  });
+
+  const peakProductionW =
+    dailyAgg?.peak_production_w ??
+    Math.max(...chartData.map((p) => p.pv_w), 0);
+
+  const isToday = date === today;
+  const prevDate = shiftDateString(date, -1);
+  const nextDate = shiftDateString(date, +1);
+  const canGoForward = nextDate <= today;
+
   return (
     <>
-      <DashboardHeader title="Dziś" recordedAt={null} />
-      <Card className="glass">
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Wykres 24h produkcji vs zużycia, breakdown dnia. Wkrótce.
+      <DashboardHeader
+        title={`${formatDateLong(date)}`}
+        recordedAt={
+          inverterReadings.length > 0
+            ? inverterReadings[inverterReadings.length - 1].recorded_at
+            : null
+        }
+      />
+
+      <DateNav
+        basePath="/daily"
+        prevHref={`/daily?date=${prevDate}`}
+        nextHref={canGoForward ? `/daily?date=${nextDate}` : null}
+        current={formatDateLong(date)}
+        todayHref={`/daily?date=${today}`}
+        showToday={!isToday}
+      />
+
+      <Card className="glass mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">
+            Produkcja vs zużycie · {formatDateLong(date)}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DailyLineChart data={chartData} />
         </CardContent>
       </Card>
+
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <KpiTile
+          icon={Sun}
+          label="Produkcja"
+          value={formatKwh(dailyAgg?.yield_kwh)}
+          sub={`Szczyt ${formatPower(peakProductionW)}`}
+          tone="pv"
+        />
+        <KpiTile
+          icon={Zap}
+          label="Zużycie domu"
+          value={formatKwh(dailyAgg?.consumption_kwh)}
+          sub={
+            dailyAgg?.self_use_rate_pct != null
+              ? `Autokonsumpcja ${dailyAgg.self_use_rate_pct.toFixed(0)}%`
+              : undefined
+          }
+          tone="export"
+        />
+        <KpiTile
+          icon={ArrowDownToLine}
+          label="Pobór z sieci"
+          value={formatKwh(dailyAgg?.import_kwh)}
+          sub={
+            dailyAgg?.cost_pln != null
+              ? `Koszt ${formatPln(dailyAgg.cost_pln, true)}`
+              : undefined
+          }
+          tone="import"
+        />
+        <KpiTile
+          icon={ArrowUpFromLine}
+          label="Eksport do sieci"
+          value={formatKwh(dailyAgg?.export_kwh)}
+          sub={
+            dailyAgg?.earnings_pln != null
+              ? `Przychód ${formatPln(dailyAgg.earnings_pln, true)}`
+              : undefined
+          }
+          tone="export"
+        />
+      </section>
+
+      {dailyAgg?.savings_pln != null && (
+        <Card className="glass">
+          <CardContent className="py-4 px-5 sm:px-6 flex items-center justify-between">
+            <div className="text-sm">
+              Bilans dnia
+              <div className="text-xs text-muted-foreground">
+                Oszczędności z autokonsumpcji + przychód z eksportu − koszt
+                poboru
+              </div>
+            </div>
+            <div className="text-2xl font-semibold tabular-nums">
+              {formatPln(
+                Number(dailyAgg.savings_pln ?? 0) +
+                  Number(dailyAgg.earnings_pln ?? 0) -
+                  Number(dailyAgg.cost_pln ?? 0),
+                true,
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
+}
+
+function isValidDate(s: string | undefined): s is string {
+  return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
