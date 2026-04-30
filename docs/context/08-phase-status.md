@@ -13,7 +13,7 @@
 | 0 | Discovery i setup | ✅ DONE (30.04.2026) | ~1 dzień |
 | 1 | Pipeline danych | ✅ DONE (30.04.2026) | ~1 dzień |
 | 2 | Backfill historyczny | ✅ DONE (30.04.2026) | ~30 min |
-| 3 | Dashboard webowy | 🟡 IN PROGRESS (krok 1/7) | 2-3 dni plan |
+| 3 | Dashboard webowy | 🟢 FUNCTIONAL (krok A-D done) | 2-3 dni plan |
 | 4 | Chatbot operacyjny | ⏳ pending | 1 dzień |
 | 5 | Chatbot techniczny (RAG) | ⏳ pending | 1 dzień |
 | 7 | Multi-tenant polish | ⏳ pending | 1 dzień |
@@ -266,6 +266,68 @@ Dorzucona pełna specyfikacja z naklejki: 1000V max DC, MPP 180-950V, battery 18
 **Konsekwencje dla bieżącej Fazy 3:** brak. Krok 1 fundament dalej stoi. Krok 3 (Overview MVP) musi mieć logikę "jeśli brak danych baterii, ukryj sekcję / pokaż 'Brak baterii'" zamiast crashować — tak czy inaczej to było potrzebne dla edge case'u "ostatnie 5 min nie poszło polling".
 
 **Notatka biznesowa:** rodzina rozważa zakup baterii + auta elektrycznego razem. Bez EV bateria sama nie ma sensu ekonomicznego (Krzysztof, 30.04.2026). Niewpływające na bieżącą implementację, ale warto pamiętać dla case study i przyszłych rekomendacji w chatbocie.
+
+---
+
+## Faza 3 — komplet zbudowany (kroki A-D)
+
+Plan z 7 kroków zredukowany do 4 commitów po decyzji Michała 30.04.2026: "zbudujmy ten dashboard żeby już działał, design polerujemy później". Auth gate odłożony — `AUTH_GATE_ENABLED=false`, single-user MVP, kto ma URL preview wchodzi.
+
+### Decyzje implementacyjne (30.04.2026)
+
+- **Bez auth na MVP.** Login dochodzi w osobnym kroku gdy potrzebny multi-user (Faza 7). Na razie URL Vercel preview = pełny dostęp
+- **Service-role Supabase client** zamiast RLS. Czytamy z `lib/data/client.ts` przez `SUPABASE_SERVICE_ROLE_KEY` (już w Vercel envach), bypass RLS bo single-user. Multi-tenant przejście to wymiana clienta na user-scoped + RLS
+- **Polski URL nie używamy.** `/overview`, `/daily`, `/monthly`, `/yearly`, `/financial` — angielski. UI 100% polski (etykiety, formatowania, narrator). Nie zmieniamy URL bo to standardowo i mniej myli
+
+### Krok A — Layout + nav + helpers + placeholder pages (commit `4f18298`)
+
+- `lib/format/`: PL-locale formatters (PLN, kWh, kW, %, daty, relative time)
+- `lib/data/{client,queries,types}`: server-only Supabase service-role client + 8 high-level queries (inverter, plant/device realtime, daily/monthly aggregates, alarms, tariff, historical consumption, cumulative financials)
+- `lib/tariff/`: zone rate + fixed charges + RCEm fallback lookup + import/export calculators
+- `components/dashboard/{header,sidebar,mobile-nav,refresh-indicator,nav-config}`: sidebar desktop, bottom tabs mobile, freshness dot + 5-min auto `router.refresh()`
+- `app/(dashboard)/layout.tsx`: shell wrapping 5 sections
+- 5 placeholder pages: `/overview`, `/daily`, `/monthly`, `/yearly`, `/financial`
+- `/` redirectuje do `/overview`
+- shadcn add: progress, badge, tooltip, separator, avatar
+
+### Krok B — Overview z energy flow + KPIs + live commentary + alarms (commit `970c9fb`)
+
+- `lib/derive/`: pure energy flow calculation (`deriveEnergyFlow`, `deriveFlowArrows`) + rules-based PL `buildLiveCommentary` (handles night, day, export, import, battery-or-no-battery — Faza 4 podmieni na Claude API)
+- `components/dashboard/energy-flow.tsx`: 3×3 grid bento (PV nad Domem, po bokach Grid i Bateria), strzałki świecące się gdy energia płynie. Battery scenario A safe — pokazuje "Brak / Falownik bez magazynu"
+- `components/dashboard/kpi-tile.tsx`: reusable z tone'm (pv/savings/import/export/neutral)
+- `components/dashboard/alarms-widget.tsx`: ostatnie 30 dni alarmów, "Bez alarmów. Instalacja pracuje normalnie." gdy pusto
+- `app/(dashboard)/overview/page.tsx`: hero live commentary + energy flow + 4 KPI bento (produkcja teraz, zużycie domu, oszczędności w tym miesiącu, bateria/brak) + alarms
+
+### Krok C — Daily / Monthly / Yearly z Recharts (commit `de792cf`)
+
+- `lib/date/`: Europe/Warsaw helpers (todayWarsaw, day bounds w ISO, shift date/month, month name PL_MONTH_SHORT)
+- `components/charts/recharts-base.tsx`: shared CHART_COLORS palette mirroring globals.css oklch vars + GlassTooltip + PL tick formatters
+- `components/charts/{daily-line,monthly-bar,yearly-grouped}-chart.tsx`: trzy chart components, area + bar + grouped bar
+- `components/dashboard/date-nav.tsx`: glass prev/next pills + "Dziś" shortcut
+
+- `daily/page` (`?date=YYYY-MM-DD`): area chart 24h produkcja vs zużycie + signed grid line, 4 KPI (yield, load, import, export) + bilans dnia
+- `monthly/page` (`?month=YYYY-MM`): bar chart dni miesiąca, 4 KPI (total, average, net balance, best day) + top 3 dni
+- `yearly/page`: grouped bars YoY, 4 KPI (current year, previous year, YoY same-period delta, best month) + lifetime z notką o limicie 12 mies. w Solax API
+
+### Krok D — Financial z prognozą (commit następny)
+
+- `components/charts/forecast-chart.tsx`: composed chart Area (rzeczywiste) + Line dashed (prognoza), z `ReferenceLine` na progu zwrotu
+- `app/(dashboard)/financial/page.tsx`:
+  - **Hero break-even progress card** glass-strong, Progress bar do 24 000 PLN target. Status badge "Zwrócone" lub "X% drogi". Pokazuje rok progu zwrotu
+  - **Dwa numery równolegle**: "Solax-reported" (z `daily_aggregates`, niedoszacowane) vs "PGE-actual" (kalkulowane z `historical_yearly_consumption` × tariff brutto, bardziej realistyczne)
+  - **Breakdown KPI**: lifetime production, oszczędności z autokonsumpcji, przychód z eksportu RCEm, koszt poboru
+  - **Forecast chart do 2035**: ekstrapolacja na bazie ostatnich 365 dni, prosta liniowa (bez założenia dalszego wzrostu cen)
+  - **Tabela ostatnich 12 miesięcy**: month, yield, savings, eksport, koszt, bilans
+
+### Stan końcowy Fazy 3
+
+Dashboard pełny, używalny, dane realne z Supabase. Auto-refresh co 5 min na każdej stronie. Mobile-first (bottom tab bar). Battery scenario A bezpieczny — wszystkie sekcje bateryjne mają fallback "Brak". 100% PL UI.
+
+**Co odłożone do Faz 4-7:**
+- Login magic link (Faza 7 multi-tenant)
+- AI live commentary (Faza 4 — rules-based zostaje jako fallback)
+- Tooltipy "Co to znaczy?" dla terminów (autokonsumpcja, RCEm, net-billing) — łatwe dorzucenie po feedbacku
+- Pixel-perfect design polish — kolory/animacje/dark mode
 
 ## Co jest gotowe do startu Fazy 2 (historyczne, archiwum)
 

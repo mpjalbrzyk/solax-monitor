@@ -67,9 +67,9 @@ export function formatPln(value: number | null | undefined, precise = false): st
   return precise ? plPLNPrecise.format(value) : plPLN.format(value);
 }
 
-export function formatKwh(value: number | null | undefined, precision: 1 | 2 = 1): string {
+export function formatKwh(value: number | null | undefined, precision: 0 | 1 | 2 = 1): string {
   if (value == null || !Number.isFinite(value)) return "—";
-  const formatter = precision === 2 ? plNumber2 : plNumber1;
+  const formatter = precision === 2 ? plNumber2 : precision === 0 ? plNumber0 : plNumber1;
   return `${formatter.format(value)} kWh`;
 }
 
