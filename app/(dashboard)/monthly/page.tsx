@@ -1,18 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { DateNav } from "@/components/dashboard/date-nav";
+import { MonthPicker, type MonthOption } from "@/components/dashboard/month-picker";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import {
   MonthlyBarChart,
   type MonthlyDayPoint,
 } from "@/components/charts/monthly-bar-chart";
-import { Sun, Wallet, TrendingUp, CalendarCheck } from "lucide-react";
-import { getActiveInverter, getDailyAggregates } from "@/lib/data/queries";
+import { Sun, Wallet, TrendingUp, CalendarCheck, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import {
+  getActiveInverter,
+  getDailyAggregates,
+  getHistoricalPgeInvoices,
+} from "@/lib/data/queries";
 import {
   todayWarsaw,
   shiftMonthString,
   firstOfMonth,
   lastOfMonth,
+  PL_MONTH_SHORT,
 } from "@/lib/date";
 import { formatKwh, formatMonthYear, formatPln, formatDateShort } from "@/lib/format";
 import { GLOSSARY } from "@/lib/copy/glossary";
@@ -46,10 +52,22 @@ export default async function MonthlyPage({
 
   const fromDate = firstOfMonth(`${month}-01`);
   const toDate = lastOfMonth(`${month}-01`);
-  const dailyRange = await getDailyAggregates(inverter.id, fromDate, toDate);
 
-  // Build a row for every day of the month so the bar chart shows the full
-  // month even if some days are missing data.
+  const [dailyRange, allInvoices] = await Promise.all([
+    getDailyAggregates(inverter.id, fromDate, toDate),
+    getHistoricalPgeInvoices(inverter.id),
+  ]);
+
+  // Match the PGE invoice for this month (if any)
+  const pgeRow = allInvoices.find((i) => i.month_date.startsWith(month));
+
+  // Determine data source for this month
+  // - Solax daily aggregates if available (post-2025-04 typically)
+  // - PGE invoice fallback for older months
+  const hasSolaxDaily = dailyRange.length > 0;
+  const hasPgeInvoice = !!pgeRow;
+
+  // Build full month chart data
   const totalDaysInMonth = Number(toDate.slice(8));
   const byDate = new Map(dailyRange.map((d) => [d.date, d]));
   const data: MonthlyDayPoint[] = Array.from(
@@ -67,6 +85,7 @@ export default async function MonthlyPage({
     },
   );
 
+  // Aggregates: prefer Solax for production stats, PGE for grid stats
   const totalYield = data.reduce((s, d) => s + d.yield_kwh, 0);
   const totalSavings = dailyRange.reduce(
     (s, d) =>
@@ -79,96 +98,180 @@ export default async function MonthlyPage({
   const daysWithData = dailyRange.length;
   const avgDaily = daysWithData > 0 ? totalYield / daysWithData : 0;
   const top3 = [...dailyRange]
-    .sort(
-      (a, b) =>
-        Number(b.yield_kwh ?? 0) - Number(a.yield_kwh ?? 0),
-    )
+    .sort((a, b) => Number(b.yield_kwh ?? 0) - Number(a.yield_kwh ?? 0))
     .slice(0, 3);
+
+  // Build month picker options — include every month with PGE data
+  const monthsWithData = new Set(allInvoices.map((i) => i.month_date.slice(0, 7)));
+  // Plus current month even if no invoice yet
+  monthsWithData.add(currentMonth);
+  // Plus any month with daily aggregates (e.g. 2025-04 onwards from Solax)
+  for (const d of dailyRange) monthsWithData.add(d.date.slice(0, 7));
+
+  const monthOptions: MonthOption[] = generateMonthRange(
+    minMonth(monthsWithData) ?? "2023-02",
+    currentMonth,
+  ).map((ym) => ({
+    value: ym,
+    label: monthLabel(ym),
+    hasData: monthsWithData.has(ym),
+  })).reverse(); // newest first
 
   const prevMonth = shiftMonthString(month, -1);
   const nextMonth = shiftMonthString(month, +1);
   const canGoForward = nextMonth <= currentMonth;
 
+  // Contextual rules-based commentary
+  const commentary = buildMonthlyCommentary({
+    month,
+    totalYield,
+    avgDaily,
+    pgeRow: pgeRow ?? null,
+    allInvoices,
+    hasSolaxDaily,
+    hasPgeInvoice,
+  });
+
   return (
     <>
-      <DashboardHeader
-        title={formatMonthYear(`${month}-01`)}
-        recordedAt={null}
-      />
+      <DashboardHeader title={formatMonthYear(`${month}-01`)} recordedAt={null} />
 
-      <DateNav
-        basePath="/monthly"
-        prevHref={`/monthly?month=${prevMonth}`}
-        nextHref={canGoForward ? `/monthly?month=${nextMonth}` : null}
-        current={formatMonthYear(`${month}-01`)}
-        todayHref={`/monthly?month=${currentMonth}`}
-        showToday={month !== currentMonth}
-      />
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <DateNav
+          basePath="/monthly"
+          prevHref={`/monthly?month=${prevMonth}`}
+          nextHref={canGoForward ? `/monthly?month=${nextMonth}` : null}
+          current={formatMonthYear(`${month}-01`)}
+        />
+        <MonthPicker current={month} options={monthOptions} basePath="/monthly" />
+        {month !== currentMonth && (
+          <a
+            href={`/monthly?month=${currentMonth}`}
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+          >
+            Bieżący miesiąc
+          </a>
+        )}
+      </div>
 
-      <Card className="glass mb-4">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">
-            Produkcja dzienna · {formatMonthYear(`${month}-01`)}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <MonthlyBarChart data={data} />
-        </CardContent>
-      </Card>
+      {commentary && (
+        <Card className="glass mb-4">
+          <CardContent className="py-4 px-5 sm:px-6 text-sm leading-relaxed">
+            {commentary}
+          </CardContent>
+        </Card>
+      )}
 
+      {hasSolaxDaily ? (
+        <Card className="glass mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">
+              Produkcja dzienna · {formatMonthYear(`${month}-01`)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MonthlyBarChart data={data} />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="glass mb-4">
+          <CardContent className="py-8 px-5 sm:px-6 text-sm text-muted-foreground text-center">
+            Brak danych dziennych Solax dla tego miesiąca — Solax API udostępnia
+            tylko ostatnie ~13 miesięcy. Dane sieciowe poniżej z faktur PGE.
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PGE-source KPI tiles for old months, Solax for fresh */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <KpiTile
-          icon={Sun}
-          label="Produkcja w miesiącu"
-          value={formatKwh(totalYield)}
-          sub={`${daysWithData} dni z danymi`}
-          tone="pv"
-          hint={GLOSSARY.produkcjaLifetime}
-        />
-        <KpiTile
-          icon={TrendingUp}
-          label="Średnia dzienna"
-          value={formatKwh(avgDaily)}
-          sub="z dni z danymi"
-          tone="pv"
-          hint={GLOSSARY.sredniaDzienna}
-        />
-        <KpiTile
-          icon={Wallet}
-          label="Bilans finansowy"
-          value={formatPln(totalSavings)}
-          sub="oszczędności + eksport − pobór"
-          tone="savings"
-          hint={GLOSSARY.bilansFinansowyMiesiaca}
-        />
-        <KpiTile
-          icon={CalendarCheck}
-          label="Najlepszy dzień"
-          value={
-            top3[0]
-              ? formatKwh(top3[0].yield_kwh)
-              : "—"
-          }
-          sub={top3[0] ? formatDateShort(top3[0].date) : undefined}
-          tone="pv"
-          hint={GLOSSARY.najlepszyDzien}
-        />
+        {hasSolaxDaily ? (
+          <>
+            <KpiTile
+              icon={Sun}
+              label="Produkcja w miesiącu"
+              value={formatKwh(totalYield)}
+              sub={`${daysWithData} dni z danymi`}
+              tone="pv"
+              hint={GLOSSARY.produkcjaLifetime}
+            />
+            <KpiTile
+              icon={TrendingUp}
+              label="Średnia dzienna"
+              value={formatKwh(avgDaily)}
+              sub="z dni z danymi"
+              tone="pv"
+              hint={GLOSSARY.sredniaDzienna}
+            />
+          </>
+        ) : (
+          <>
+            <KpiTile
+              icon={Sun}
+              label="Produkcja w miesiącu"
+              value="—"
+              sub="brak danych Solax"
+              tone="neutral"
+            />
+            <KpiTile
+              icon={TrendingUp}
+              label="Średnia dzienna"
+              value="—"
+              sub="brak danych Solax"
+              tone="neutral"
+            />
+          </>
+        )}
+        {hasPgeInvoice ? (
+          <>
+            <KpiTile
+              icon={ArrowDownToLine}
+              label="Pobór z sieci"
+              value={formatKwh(pgeRow.grid_import_kwh, 0)}
+              sub={pgeRow.invoice_no ? `Faktura ${pgeRow.invoice_no}` : "Z faktury PGE"}
+              tone="import"
+              hint={GLOSSARY.importPobor}
+            />
+            <KpiTile
+              icon={ArrowUpFromLine}
+              label="Eksport do sieci"
+              value={formatKwh(pgeRow.grid_export_kwh, 0)}
+              sub={`Depozyt ${formatPln(pgeRow.deposit_value_pln)}`}
+              tone="export"
+              hint={GLOSSARY.eksport}
+            />
+          </>
+        ) : (
+          <>
+            <KpiTile
+              icon={Wallet}
+              label="Bilans finansowy"
+              value={formatPln(totalSavings)}
+              sub="oszczędności + eksport − pobór"
+              tone="savings"
+              hint={GLOSSARY.bilansFinansowyMiesiaca}
+            />
+            <KpiTile
+              icon={CalendarCheck}
+              label="Najlepszy dzień"
+              value={top3[0] ? formatKwh(top3[0].yield_kwh) : "—"}
+              sub={top3[0] ? formatDateShort(top3[0].date) : undefined}
+              tone="pv"
+              hint={GLOSSARY.najlepszyDzien}
+            />
+          </>
+        )}
       </section>
 
-      {top3.length > 0 && (
+      {/* For fresh months with Solax data, also show top 3 days */}
+      {hasSolaxDaily && top3.length > 0 && (
         <Card className="glass">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">
-              Top dni produkcji
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Top dni produkcji</CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="flex flex-col gap-2 text-sm">
               {top3.map((d, idx) => (
-                <li
-                  key={d.date}
-                  className="flex items-center justify-between gap-3 py-1"
-                >
+                <li key={d.date} className="flex items-center justify-between gap-3 py-1">
                   <span className="flex items-center gap-3 min-w-0">
                     <span className="size-6 rounded-full bg-[var(--pv)]/15 text-[var(--pv-foreground)] text-xs font-medium flex items-center justify-center shrink-0">
                       {idx + 1}
@@ -190,4 +293,90 @@ export default async function MonthlyPage({
 
 function isValidYearMonth(s: string | undefined): s is string {
   return !!s && /^\d{4}-\d{2}$/.test(s);
+}
+
+function generateMonthRange(fromYM: string, toYM: string): string[] {
+  const result: string[] = [];
+  let cur = fromYM;
+  while (cur <= toYM) {
+    result.push(cur);
+    cur = shiftMonthString(cur, 1);
+  }
+  return result;
+}
+
+function minMonth(set: Set<string>): string | null {
+  let min: string | null = null;
+  for (const m of set) {
+    if (min === null || m < min) min = m;
+  }
+  return min;
+}
+
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split("-");
+  const idx = Number(m) - 1;
+  return `${PL_MONTH_SHORT[idx]} ${y}`;
+}
+
+type CommentaryArgs = {
+  month: string;
+  totalYield: number;
+  avgDaily: number;
+  pgeRow: import("@/lib/data/types").HistoricalPgeInvoice | null;
+  allInvoices: import("@/lib/data/types").HistoricalPgeInvoice[];
+  hasSolaxDaily: boolean;
+  hasPgeInvoice: boolean;
+};
+
+function buildMonthlyCommentary(args: CommentaryArgs): string | null {
+  const { month, totalYield, pgeRow, allInvoices, hasSolaxDaily } = args;
+  const lines: string[] = [];
+
+  // YoY same-month comparison from PGE invoices
+  if (pgeRow) {
+    const [y, m] = month.split("-");
+    const prevYearMonth = `${Number(y) - 1}-${m}`;
+    const prevYearRow = allInvoices.find((i) => i.month_date.startsWith(prevYearMonth));
+    if (prevYearRow && Number(prevYearRow.grid_export_kwh) > 0) {
+      const delta =
+        ((Number(pgeRow.grid_export_kwh) - Number(prevYearRow.grid_export_kwh)) /
+          Number(prevYearRow.grid_export_kwh)) *
+        100;
+      const sign = delta >= 0 ? "+" : "";
+      lines.push(
+        `Eksport do sieci: ${formatKwh(pgeRow.grid_export_kwh, 0)} — ${sign}${delta.toFixed(0)}% vs ten sam miesiąc rok temu (${formatKwh(prevYearRow.grid_export_kwh, 0)}).`,
+      );
+    } else {
+      lines.push(
+        `Eksport do sieci: ${formatKwh(pgeRow.grid_export_kwh, 0)}, depozyt ${formatPln(pgeRow.deposit_value_pln)}.`,
+      );
+    }
+  }
+
+  // Production context (only if Solax data)
+  if (hasSolaxDaily && totalYield > 0) {
+    // Compare to all-time best month
+    const allMonthsExports = allInvoices
+      .filter((i) => i.grid_export_kwh != null)
+      .sort((a, b) => Number(b.grid_export_kwh) - Number(a.grid_export_kwh));
+    if (allMonthsExports.length > 0) {
+      const best = allMonthsExports[0];
+      const bestKwh = Number(best.grid_export_kwh);
+      const ratio = (Number(pgeRow?.grid_export_kwh ?? 0) / bestKwh) * 100;
+      if (pgeRow && bestKwh > 0 && ratio > 0) {
+        lines.push(
+          `${ratio.toFixed(0)}% eksportu rekordowego miesiąca (${formatMonthYear(best.month_date)} z ${formatKwh(bestKwh, 0)}).`,
+        );
+      }
+    }
+  }
+
+  if (!hasSolaxDaily && pgeRow) {
+    lines.push(
+      `Solax udostępnia produkcję dzienną tylko z ostatnich ~13 mies. — dla starszych miesięcy pokazujemy dane sieciowe z faktur PGE.`,
+    );
+  }
+
+  return lines.length > 0 ? lines.join(" ") : null;
 }

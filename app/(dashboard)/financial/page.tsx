@@ -8,13 +8,14 @@ import {
   ForecastChart,
   type ForecastPoint,
 } from "@/components/charts/forecast-chart";
-import { CheckCircle2, Wallet, Sun, ArrowUpFromLine, Zap } from "lucide-react";
+import { CheckCircle2, Wallet, Sun, ArrowUpFromLine, Zap, Receipt, Clock } from "lucide-react";
 import {
   getActiveInverter,
   getCumulativeFinancials,
   getDailyAggregates,
   getHistoricalConsumption,
   getHistoricalPgeInvoices,
+  getPgeInvoices,
   getTariffComponents,
 } from "@/lib/data/queries";
 import { todayWarsaw, shiftDateString, PL_MONTH_SHORT } from "@/lib/date";
@@ -48,13 +49,14 @@ export default async function FinancialPage() {
   const today = todayWarsaw();
   const oneYearAgo = shiftDateString(today, -365);
 
-  const [cumulative, lastYearDailies, history, pgeInvoices, components] =
+  const [cumulative, lastYearDailies, history, pgeInvoices, components, invoiceDocs] =
     await Promise.all([
       getCumulativeFinancials(inverter.id),
       getDailyAggregates(inverter.id, oneYearAgo, today),
       getHistoricalConsumption(inverter.id),
       getHistoricalPgeInvoices(inverter.id),
       getTariffComponents(inverter.id),
+      getPgeInvoices(inverter.id),
     ]);
 
   // === SOLAX-REPORTED (z daily_aggregates) ===
@@ -207,6 +209,16 @@ export default async function FinancialPage() {
               )}
             </div>
             <Progress value={progressPct} className="h-2" />
+            <p className="text-sm leading-relaxed text-foreground/80">
+              {buildFinancialHeroComment({
+                bestEstimateNet,
+                breakEvenTarget,
+                progressPct,
+                isReturned,
+                yearsSinceInstall,
+                projectedAnnualNet,
+              })}
+            </p>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
                 Brutto wpłacone: {formatPln(grossPaid)} · Dotacja Mój Prąd:{" "}
@@ -327,6 +339,81 @@ export default async function FinancialPage() {
         </CardContent>
       </Card>
 
+      {/* === PGE invoices history === */}
+      {invoiceDocs.length > 0 && (
+        <Card className="glass mb-4">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Receipt className="size-4 text-muted-foreground" />
+              Faktury PGE — historia rozliczeń
+            </CardTitle>
+            <span className="text-xs text-muted-foreground">
+              {invoiceDocs.length} dokumentów
+            </span>
+          </CardHeader>
+          <CardContent className="px-0 sm:px-6">
+            <div className="overflow-x-auto -mx-5 sm:mx-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase text-muted-foreground border-b border-zinc-200/60">
+                    <th className="px-5 sm:px-3 py-2 font-medium">Numer</th>
+                    <th className="px-3 py-2 font-medium hidden sm:table-cell">Typ</th>
+                    <th className="px-3 py-2 font-medium">Wystawiona</th>
+                    <th className="px-3 py-2 font-medium hidden md:table-cell">Okres</th>
+                    <th className="px-3 py-2 font-medium text-right">Do zapłaty</th>
+                    <th className="px-5 sm:px-3 py-2 font-medium text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoiceDocs.map((doc) => (
+                    <tr
+                      key={doc.invoice_no}
+                      className="border-b border-zinc-100/60 hover:bg-white/30"
+                    >
+                      <td className="px-5 sm:px-3 py-2 whitespace-nowrap font-mono text-xs">
+                        {doc.invoice_no}
+                      </td>
+                      <td className="px-3 py-2 hidden sm:table-cell">
+                        {invoiceTypeLabel(doc.invoice_type)}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                        {doc.issued_date}
+                      </td>
+                      <td className="px-3 py-2 hidden md:table-cell whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+                        {doc.period_from && doc.period_to
+                          ? `${doc.period_from.slice(0, 7)} → ${doc.period_to.slice(0, 7)}`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {formatPln(doc.amount_after_deposit_pln ?? doc.amount_brutto_pln, true)}
+                      </td>
+                      <td className="px-5 sm:px-3 py-2 text-right">
+                        <InvoiceStatusBadge status={doc.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="px-5 sm:px-3 pt-3 text-xs text-muted-foreground">
+              Łącznie zapłacone PGE od początku:{" "}
+              <strong className="text-foreground">
+                {formatPln(
+                  invoiceDocs
+                    .filter((d) => d.status === "paid" || d.status === "paid_late")
+                    .reduce(
+                      (s, d) =>
+                        s + Number(d.amount_after_deposit_pln ?? d.amount_brutto_pln ?? 0),
+                      0,
+                    ),
+                )}
+              </strong>{" "}
+              za 35 mies. rozliczeń.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* === Last 12 months table === */}
       {tableRows.length > 0 && (
         <Card className="glass">
@@ -392,5 +479,77 @@ export default async function FinancialPage() {
         </p>
       )}
     </>
+  );
+}
+
+function buildFinancialHeroComment(args: {
+  bestEstimateNet: number;
+  breakEvenTarget: number;
+  progressPct: number;
+  isReturned: boolean;
+  yearsSinceInstall: number;
+  projectedAnnualNet: number;
+}): string {
+  const { bestEstimateNet, breakEvenTarget, isReturned, yearsSinceInstall, projectedAnnualNet } = args;
+  if (isReturned) {
+    const overflow = bestEstimateNet - breakEvenTarget;
+    return `Instalacja zwróciła się i pracuje już na czysty zysk — masz ${formatPln(overflow)} ponad próg ${formatPln(breakEvenTarget)} netto.`;
+  }
+  const remaining = breakEvenTarget - bestEstimateNet;
+  if (projectedAnnualNet > 0) {
+    const yearsLeft = remaining / projectedAnnualNet;
+    return `Brakuje ${formatPln(remaining)} do zwrotu netto. Przy obecnym tempie ~${formatPln(projectedAnnualNet)}/rok zwrot za ~${yearsLeft.toFixed(1)} lat (po ${formatNumber(yearsSinceInstall + yearsLeft, 1)} latach od montażu).`;
+  }
+  return `Brakuje ${formatPln(remaining)} do zwrotu netto.`;
+}
+
+function invoiceTypeLabel(t: string): string {
+  switch (t) {
+    case "settlement":
+      return "Rozliczenie";
+    case "forecast":
+      return "Prognoza";
+    case "correction":
+      return "Korekta";
+    case "interest":
+      return "Odsetki";
+    default:
+      return t;
+  }
+}
+
+function InvoiceStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { label: string; cls: string; icon?: typeof CheckCircle2 }> = {
+    paid: {
+      label: "Zapłacona",
+      cls: "bg-[var(--savings)]/15 text-[var(--savings-foreground)]",
+      icon: CheckCircle2,
+    },
+    paid_late: {
+      label: "Po terminie",
+      cls: "bg-[var(--pv)]/15 text-[var(--pv-foreground)]",
+      icon: CheckCircle2,
+    },
+    pending: {
+      label: "Oczekuje",
+      cls: "bg-zinc-200/40 text-muted-foreground",
+      icon: Clock,
+    },
+    compensated: {
+      label: "Skompensowana",
+      cls: "bg-[var(--grid-export)]/15 text-foreground",
+    },
+    cancelled: {
+      label: "Anulowana",
+      cls: "bg-zinc-200/40 text-muted-foreground",
+    },
+  };
+  const c = config[status] ?? { label: status, cls: "bg-zinc-200/40" };
+  const Icon = c.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.cls}`}>
+      {Icon && <Icon className="size-3" />}
+      {c.label}
+    </span>
   );
 }

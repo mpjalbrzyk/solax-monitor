@@ -178,7 +178,7 @@ function mapInverterRow(inv: UserInverter, d: DeviceRealtime, recordedAt: string
     ac_frequency_l2: d.acFrequency2 ?? null,
     ac_frequency_l3: d.acFrequency3 ?? null,
     grid_frequency: d.gridFrequency ?? null,
-    total_active_power_w: passThroughPower(d.totalActivePower),
+    total_active_power_w: deriveTotalActivePower(d),
     total_reactive_power_var: d.totalReactivePower ?? null,
     total_power_factor: d.totalPowerFactor ?? null,
     inverter_temperature_c: d.inverterTemperature ?? null,
@@ -334,4 +334,33 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+// Solax bug workaround: deviceModel=14 (X3-Hybrid G4 10.0-M) sometimes returns
+// totalActivePower=0 even when phase-level acPower1/2/3 + MPPT inputs clearly
+// show production. We've observed dailyYield rising to 32+ kWh while
+// totalActivePower stayed pegged at 0 for a full day.
+//
+// Strategy: trust totalActivePower if it's > 0; otherwise fall back to the
+// sum of per-phase AC power. If all are zero/missing, return 0 (real night).
+function deriveTotalActivePower(d: SolaxDeviceData): number | null {
+  const total = Number(d.totalActivePower);
+  if (Number.isFinite(total) && total > 0) return total;
+
+  const p1 = Number(d.acPower1) || 0;
+  const p2 = Number(d.acPower2) || 0;
+  const p3 = Number(d.acPower3) || 0;
+  const sum = p1 + p2 + p3;
+  if (sum > 0) return sum;
+
+  // Last resort: MPPT total (DC side, before AC conversion losses)
+  if (d.mpptMap) {
+    const mpptSum = Object.entries(d.mpptMap)
+      .filter(([k]) => k.endsWith("Power"))
+      .reduce((acc, [, v]) => acc + (Number(v) || 0), 0);
+    if (mpptSum > 0) return mpptSum;
+  }
+
+  // Genuine zero (night, fault, etc.)
+  return Number.isFinite(total) ? total : null;
 }
