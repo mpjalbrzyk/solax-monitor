@@ -16,7 +16,8 @@ export type Achievement = {
   label: string;
   description: string;
   earnedDate: string | null; // ISO date
-  emoji: string;
+  // Use Lucide icon name; rendered by component via icon registry
+  icon: "sun" | "trophy" | "sparkles" | "calendar" | "zap" | "award" | "flame";
 };
 
 // Production streak — consecutive days with yield > threshold.
@@ -163,13 +164,15 @@ export function calculateAchievements(
 
   // First day > 30 kWh
   const firstBig = sortedDays.find((d) => Number(d.yield_kwh ?? 0) > 30);
-  achievements.push({
-    id: "first-30kwh-day",
-    label: "Pierwszy >30 kWh",
-    description: "Pierwszy dzień gdy panele dały ponad 30 kWh.",
-    earnedDate: firstBig?.date ?? null,
-    emoji: "☀️",
-  });
+  if (firstBig) {
+    achievements.push({
+      id: "first-30kwh-day",
+      label: "Dzień > 30 kWh",
+      description: `Pierwszy raz panele dały ponad 30 kWh: ${firstBig.date}`,
+      earnedDate: firstBig.date,
+      icon: "sun",
+    });
+  }
 
   // 100 production days total
   const productionDays = dailies.filter((d) => Number(d.yield_kwh ?? 0) > 1).length;
@@ -180,7 +183,7 @@ export function calculateAchievements(
       label: "100 dni produkcji",
       description: "Sto dni z aktywną produkcją PV.",
       earnedDate: sortedProd[99]?.date ?? null,
-      emoji: "💯",
+      icon: "calendar",
     });
   }
 
@@ -201,9 +204,9 @@ export function calculateAchievements(
     achievements.push({
       id: "first-positive-month",
       label: "Pierwszy plus miesiąca",
-      description: "Pierwszy miesiąc gdy bilans finansowy wyszedł na plus.",
+      description: `Bilans wyszedł na plus pierwszy raz: ${firstPositiveMonth[0]}`,
       earnedDate: `${firstPositiveMonth[0]}-01`,
-      emoji: "💚",
+      icon: "zap",
     });
   }
 
@@ -218,12 +221,130 @@ export function calculateAchievements(
   if (peakMonth && Number(peakMonth.pv_generation_kwh) > 1000) {
     achievements.push({
       id: "1000-kwh-month",
-      label: "Miesiąc >1 MWh",
+      label: "Miesiąc > 1 MWh",
       description: `Najlepszy miesiąc do tej pory: ${(Number(peakMonth.pv_generation_kwh) / 1000).toFixed(1)} MWh`,
       earnedDate: String(peakMonth.month),
-      emoji: "🏆",
+      icon: "trophy",
+    });
+  }
+
+  // Streak: 7 days in a row with production
+  if (productionDays >= 7) {
+    achievements.push({
+      id: "7-day-streak",
+      label: "Tydzień produkcji",
+      description: "7 dni z rzędu z aktywną produkcją PV.",
+      earnedDate: sortedDays[6]?.date ?? null,
+      icon: "flame",
+    });
+  }
+
+  // Lifetime > 5 MWh
+  const lifetimeKwh = sortedMonths.reduce(
+    (s, m) => s + Number(m.pv_generation_kwh ?? 0),
+    0,
+  );
+  if (lifetimeKwh >= 5000) {
+    // Find the month when lifetime crossed 5 MWh
+    let cumKwh = 0;
+    let crossedMonth: string | null = null;
+    for (const m of sortedMonths) {
+      cumKwh += Number(m.pv_generation_kwh ?? 0);
+      if (cumKwh >= 5000 && !crossedMonth) {
+        crossedMonth = String(m.month);
+        break;
+      }
+    }
+    achievements.push({
+      id: "5-mwh-lifetime",
+      label: "5 MWh łącznie",
+      description: "Pierwsza pięciotysięczna kilowatogodzina od montażu.",
+      earnedDate: crossedMonth,
+      icon: "award",
     });
   }
 
   return achievements;
+}
+
+// Recent milestones — chronological list of "co się ostatnio zdarzyło"
+// timeline. Includes both achievements and notable data points.
+export type Milestone = {
+  date: string; // ISO date
+  label: string;
+  detail: string;
+  icon: "trophy" | "sun" | "sparkles" | "calendar" | "zap" | "award" | "flame";
+};
+
+export function calculateMilestones(
+  dailies: DailyAggregate[],
+  monthly: MonthlyAggregate[],
+  achievements: Achievement[],
+  limit = 6,
+): Milestone[] {
+  const milestones: Milestone[] = [];
+
+  // Convert earned achievements to milestones
+  for (const a of achievements) {
+    if (a.earnedDate) {
+      milestones.push({
+        date: a.earnedDate,
+        label: a.label,
+        detail: a.description,
+        icon: a.icon as Milestone["icon"],
+      });
+    }
+  }
+
+  // Best month per year — for last 3 calendar years
+  const yearGroups = new Map<string, MonthlyAggregate[]>();
+  for (const m of monthly) {
+    const year = String(m.month).slice(0, 4);
+    if (!yearGroups.has(year)) yearGroups.set(year, []);
+    yearGroups.get(year)!.push(m);
+  }
+  for (const [year, months] of yearGroups) {
+    const best = months.reduce<MonthlyAggregate | null>(
+      (b, m) =>
+        !b ||
+        Number(m.pv_generation_kwh ?? 0) > Number(b.pv_generation_kwh ?? 0)
+          ? m
+          : b,
+      null,
+    );
+    if (best && Number(best.pv_generation_kwh) > 0) {
+      milestones.push({
+        date: String(best.month),
+        label: `Najlepszy miesiąc ${year}`,
+        detail: `${(Number(best.pv_generation_kwh) / 1000).toFixed(2)} MWh produkcji`,
+        icon: "sparkles",
+      });
+    }
+  }
+
+  // Single best day across all data
+  const bestDay = dailies.reduce<DailyAggregate | null>(
+    (b, d) =>
+      !b || Number(d.yield_kwh ?? 0) > Number(b.yield_kwh ?? 0) ? d : b,
+    null,
+  );
+  if (bestDay && Number(bestDay.yield_kwh) > 30) {
+    milestones.push({
+      date: bestDay.date,
+      label: "Rekord dzienny",
+      detail: `${Number(bestDay.yield_kwh).toFixed(1)} kWh w jednym dniu`,
+      icon: "sun",
+    });
+  }
+
+  // Sort newest first, dedupe by label, limit
+  const seen = new Set<string>();
+  return milestones
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .filter((m) => {
+      if (seen.has(m.label)) return false;
+      seen.add(m.label);
+      return true;
+    })
+    .slice(0, limit);
 }

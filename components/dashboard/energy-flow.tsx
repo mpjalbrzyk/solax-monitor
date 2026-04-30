@@ -166,6 +166,7 @@ export function EnergyFlowDiagram({
             icon={<BatteryLow className="size-5" />}
             label="Bateria"
             value="Brak"
+            subValue="Falownik bez magazynu"
             accent="muted"
             active={false}
             muted

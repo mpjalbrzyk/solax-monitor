@@ -25,10 +25,15 @@ import { GamificationRow } from "@/components/dashboard/gamification-row";
 import { HowItWorks } from "@/components/dashboard/how-it-works";
 import {
   calculateAchievements,
+  calculateMilestones,
   calculatePositiveBalanceStreak,
   calculateProductionStreak,
   calculateYearlyGoalProgress,
 } from "@/lib/derive/gamification";
+import {
+  buildOverviewSummary,
+  periodMiniComment,
+} from "@/lib/derive/overview-commentary";
 import {
   buildLiveCommentary,
   deriveEnergyFlow,
@@ -116,6 +121,12 @@ export default async function OverviewPage() {
     today,
   );
   const achievements = calculateAchievements(lastYearDailies, allMonthly);
+  const milestones = calculateMilestones(
+    lastYearDailies,
+    allMonthly,
+    achievements,
+    9,
+  );
 
   // === Energy flow ===
   const flow = deriveEnergyFlow(inverterDevice, batteryDevice);
@@ -200,24 +211,53 @@ export default async function OverviewPage() {
     0,
   );
 
+  // === Top contextual summary (after period values are computed) ===
+  const summary = buildOverviewSummary({
+    todayYieldKwh: dailyYield,
+    todayBalancePln: todayBalance,
+    weekYieldKwh: weekYield,
+    weekBalancePln: weekBalance,
+    weekDays,
+    monthYieldKwh: monthYield,
+    monthBalancePln: monthBalance,
+    monthDays: monthRange.length,
+    systemOk: status.status === "ok",
+  });
+
   return (
     <>
       <DashboardHeader title="Przegląd" recordedAt={recordedAt} />
 
-      {/* === STREFA 1 — STATUS HERO === */}
+      {/* === STREFA 0 — Top contextual summary (Michał's request) === */}
+      <Card className="glass mb-4">
+        <CardContent className="px-5 sm:px-6 py-4">
+          <div className="flex items-start gap-3">
+            <SystemStatusBadge {...status} />
+            <p className="text-sm sm:text-base leading-relaxed text-foreground/90 flex-1">
+              {summary}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* === STREFA 1 — Energy flow + commentary === */}
       <Card className="glass-strong mb-4">
         <CardContent className="px-5 sm:px-6 py-5">
           <div className="flex items-start justify-between gap-3 mb-3">
-            <SystemStatusBadge {...status} />
-            <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:inline">
+            <div>
+              <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-1">
+                Co się dzieje teraz
+              </h3>
+              <p className="text-base sm:text-lg leading-relaxed text-foreground/90">
+                {commentary}
+              </p>
+            </div>
+            <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:inline shrink-0">
               {flow.hasBattery
                 ? "PV + Bateria + Sieć"
                 : "PV + Sieć (bez baterii)"}
             </span>
           </div>
-          <p className="text-base sm:text-lg leading-relaxed text-foreground/90 mb-4">
-            {commentary}
-          </p>
           <EnergyFlowDiagram flow={flow} arrows={arrows} />
           {mppt && (
             <div className="mt-4">
@@ -237,6 +277,12 @@ export default async function OverviewPage() {
             value={formatKwh(dailyYield)}
             sub="Produkcja"
             mainBalance={todayBalance}
+            comment={periodMiniComment({
+              period: "today",
+              yieldKwh: dailyYield,
+              balancePln: todayBalance,
+              days: 1,
+            })}
             secondaryLines={[
               { label: "Zużycie", value: formatKwh(todayAgg?.consumption_kwh) },
               { label: "Bilans", value: formatPln(todayBalance), accent: todayBalance >= 0 ? "positive" : "negative" },
@@ -248,6 +294,12 @@ export default async function OverviewPage() {
             value={formatKwh(weekYield)}
             sub={`${weekDays} dni`}
             mainBalance={weekBalance}
+            comment={periodMiniComment({
+              period: "week",
+              yieldKwh: weekYield,
+              balancePln: weekBalance,
+              days: weekDays,
+            })}
             secondaryLines={[
               { label: "Średnio/dzień", value: formatKwh(weekDays > 0 ? weekYield / weekDays : 0) },
               { label: "Bilans", value: formatPln(weekBalance), accent: weekBalance >= 0 ? "positive" : "negative" },
@@ -259,6 +311,12 @@ export default async function OverviewPage() {
             value={formatKwh(monthYield)}
             sub={`${monthRange.length} dni`}
             mainBalance={monthBalance}
+            comment={periodMiniComment({
+              period: "month",
+              yieldKwh: monthYield,
+              balancePln: monthBalance,
+              days: monthRange.length,
+            })}
             secondaryLines={[
               { label: "Średnio/dzień", value: formatKwh(monthRange.length > 0 ? monthYield / monthRange.length : 0) },
               { label: "Bilans", value: formatPln(monthBalance), accent: monthBalance >= 0 ? "positive" : "negative" },
@@ -311,6 +369,7 @@ export default async function OverviewPage() {
           balanceStreak={balanceStreak}
           yearlyGoal={yearlyGoal}
           achievements={achievements}
+          milestones={milestones}
         />
       </div>
 
@@ -329,6 +388,7 @@ function PeriodCard({
   value,
   sub,
   mainBalance,
+  comment,
   secondaryLines,
 }: {
   label: string;
@@ -336,13 +396,13 @@ function PeriodCard({
   value: string;
   sub?: string;
   mainBalance: number;
+  comment?: string;
   secondaryLines: Array<{
     label: string;
     value: string;
     accent?: "positive" | "negative" | "neutral";
   }>;
 }) {
-  // suppress unused warning
   void mainBalance;
   return (
     <Card className="glass">
@@ -380,6 +440,11 @@ function PeriodCard({
             </div>
           ))}
         </div>
+        {comment && (
+          <p className="text-[11px] text-muted-foreground italic mt-2 leading-snug">
+            {comment}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

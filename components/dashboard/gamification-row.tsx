@@ -1,14 +1,36 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { InfoHint } from "./info-hint";
-import { Flame, Trophy, Zap } from "lucide-react";
+import {
+  Flame,
+  Trophy,
+  Zap,
+  Sun,
+  Sparkles,
+  Calendar,
+  Award,
+} from "lucide-react";
 import { formatKwh, formatNumber } from "@/lib/format";
-import type { Achievement, Streak } from "@/lib/derive/gamification";
+import type {
+  Achievement,
+  Milestone,
+  Streak,
+} from "@/lib/derive/gamification";
+
+const ICON_REGISTRY = {
+  trophy: Trophy,
+  sun: Sun,
+  sparkles: Sparkles,
+  calendar: Calendar,
+  zap: Zap,
+  award: Award,
+  flame: Flame,
+} as const;
 
 export function GamificationRow({
   productionStreak,
   balanceStreak,
   yearlyGoal,
   achievements,
+  milestones,
 }: {
   productionStreak: Streak;
   balanceStreak: Streak;
@@ -22,23 +44,18 @@ export function GamificationRow({
     isAheadOfPace: boolean;
   };
   achievements: Achievement[];
+  milestones: Milestone[];
 }) {
   const earnedAchievements = achievements.filter((a) => a.earnedDate !== null);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-      {/* Yearly goal progress (wide left) */}
+      {/* Yearly goal progress (wide left, 2 cols) */}
       <Card className="glass lg:col-span-2">
         <CardContent className="px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium flex items-center gap-1.5">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
               Cel roczny {yearlyGoal.yearLabel}
-              <InfoHint>
-                Docelowa produkcja roczna {formatKwh(yearlyGoal.goalKwh, 0)} —
-                szacunkowy pułap dla instalacji 7,7 kWp w Ząbkach. Pasek
-                zielony jeśli idziemy szybciej niż średnia, pomarańczowy jeśli
-                wolniej. Projekcja końcoworoczna na bazie obecnego tempa.
-              </InfoHint>
             </span>
             <span
               className={`text-[11px] font-medium ${
@@ -50,13 +67,21 @@ export function GamificationRow({
               {yearlyGoal.isAheadOfPace ? "Przed planem" : "Za planem"}
             </span>
           </div>
+          <p className="text-[11px] text-muted-foreground mb-3 leading-snug">
+            <strong className="text-foreground">
+              {formatKwh(yearlyGoal.goalKwh, 0)}
+            </strong>{" "}
+            to oczekiwana roczna produkcja Twojej instalacji 7,7 kWp w Ząbkach
+            (sumarycznie 1100 kWh/kWp/rok dla woj. mazowieckiego). Pasek zielony
+            jeśli idziemy szybciej niż średnia, pomarańczowy jeśli wolniej.
+          </p>
           <div className="flex items-end justify-between gap-3 mb-2">
             <div>
               <div className="text-2xl font-semibold tabular-nums leading-none">
                 {formatKwh(yearlyGoal.producedKwh, 0)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                z {formatKwh(yearlyGoal.goalKwh, 0)} celu rocznego
+                wyprodukowane od stycznia
               </div>
             </div>
             <div className="text-right">
@@ -64,7 +89,7 @@ export function GamificationRow({
                 {yearlyGoal.pct.toFixed(0)}%
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                zrealizowane
+                celu rocznego
               </div>
             </div>
           </div>
@@ -101,40 +126,54 @@ export function GamificationRow({
         />
       </div>
 
-      {/* Achievements row (full width below) */}
-      {earnedAchievements.length > 0 && (
+      {/* Milestone timeline (full width below) */}
+      {milestones.length > 0 && (
         <Card className="glass lg:col-span-3">
           <CardContent className="px-4 py-3">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium flex items-center gap-1.5">
-                <Trophy className="size-3.5" />
-                Twoje odznaki
-              </span>
+              <div>
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium flex items-center gap-1.5">
+                  <Trophy className="size-3.5" />
+                  Najważniejsze momenty
+                </span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Rekordy i osiągnięcia z Twoich danych — najnowsze najpierw,
+                  aktualizują się gdy pojawiają się nowe rekordy.
+                </p>
+              </div>
               <span className="text-xs text-muted-foreground">
-                {earnedAchievements.length} zdobyte
+                {earnedAchievements.length} osiągnięć
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {earnedAchievements.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/40 hover:bg-white/60 transition-colors"
-                  title={a.description}
-                >
-                  <span className="text-2xl shrink-0" aria-hidden>
-                    {a.emoji}
-                  </span>
-                  <div className="flex flex-col leading-tight min-w-0">
-                    <span className="text-xs font-medium truncate">
-                      {a.label}
+            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {milestones.map((m, idx) => {
+                const Icon = ICON_REGISTRY[m.icon];
+                return (
+                  <li
+                    key={`${m.label}-${idx}`}
+                    className="flex items-start gap-2.5 px-3 py-2 rounded-lg bg-white/40 hover:bg-white/60 transition-colors"
+                  >
+                    <span
+                      className="size-8 rounded-lg bg-[var(--pv)]/15 flex items-center justify-center shrink-0"
+                      aria-hidden
+                    >
+                      <Icon className="size-4 text-[var(--pv)]" />
                     </span>
-                    <span className="text-[10px] text-muted-foreground tabular-nums">
-                      {a.earnedDate?.slice(0, 7)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                    <div className="flex flex-col leading-tight min-w-0 flex-1">
+                      <span className="text-xs font-semibold truncate">
+                        {m.label}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                        {m.detail}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums mt-1">
+                        {m.date.slice(0, 10)}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </CardContent>
         </Card>
       )}
