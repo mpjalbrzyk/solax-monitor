@@ -409,7 +409,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.poll-realtime]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/poll-realtime/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -420,7 +420,7 @@ entrypoint = "./functions/poll-realtime/index.ts"
 
 [functions.poll-alarms]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/poll-alarms/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -431,7 +431,7 @@ entrypoint = "./functions/poll-alarms/index.ts"
 
 [functions.refresh-token]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/refresh-token/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -442,7 +442,7 @@ entrypoint = "./functions/refresh-token/index.ts"
 
 [functions.daily-aggregates]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/daily-aggregates/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -453,7 +453,7 @@ entrypoint = "./functions/daily-aggregates/index.ts"
 
 [functions.weekly-digest]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/weekly-digest/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -464,7 +464,7 @@ entrypoint = "./functions/weekly-digest/index.ts"
 
 [functions.monthly-digest]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/monthly-digest/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -475,7 +475,7 @@ entrypoint = "./functions/monthly-digest/index.ts"
 
 [functions.update-rcem]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/update-rcem/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -486,7 +486,7 @@ entrypoint = "./functions/update-rcem/index.ts"
 
 [functions.send-alert]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/send-alert/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
