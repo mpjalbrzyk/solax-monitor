@@ -1,4 +1,4 @@
-import type { Tariff } from "@/lib/data/types";
+import type { HistoricalPgeInvoice, Tariff, TariffComponent } from "@/lib/data/types";
 
 // Helpers for converting raw kWh into PLN using the tariff config.
 // MVP: single-zone tariffs (G11). Multi-zone (G12, G12w) gets added when
@@ -55,4 +55,87 @@ export function calculateExportEarnings(
   yearMonth: string,
 ): number {
   return (kwh * getRcemRate(tariff, yearMonth)) / 1000;
+}
+
+// === New helpers backed by tariff_components + historical_pge_invoices ===
+
+// Effective price per kWh for a given month (PLN/kWh brutto).
+// Sums variable components (energia czynna, sieciowa zmienna, jakosciowa,
+// mocowa zmienna parts, OZE, kogeneracyjna, akcyza) and applies VAT.
+// Fixed monthly components are NOT included here (use getMonthlyFixedFromComponents).
+export function getEffectivePricePerKwhBrutto(
+  components: TariffComponent[],
+  yearMonth: string, // YYYY-MM
+): number {
+  const targetDate = `${yearMonth}-15`; // pick mid-month to dodge boundary edges
+
+  let total = 0;
+  for (const c of components) {
+    if (c.unit_rate_netto == null) continue; // skip fixed-monthly components
+    if (c.effective_from > targetDate) continue;
+    if (c.effective_to && c.effective_to < targetDate) continue;
+    total += Number(c.unit_rate_netto) * (1 + Number(c.vat_rate));
+  }
+  return total;
+}
+
+export function getMonthlyFixedFromComponents(
+  components: TariffComponent[],
+  yearMonth: string,
+): number {
+  const targetDate = `${yearMonth}-15`;
+  let total = 0;
+  for (const c of components) {
+    if (c.monthly_rate_netto == null) continue;
+    if (c.effective_from > targetDate) continue;
+    if (c.effective_to && c.effective_to < targetDate) continue;
+    total += Number(c.monthly_rate_netto) * (1 + Number(c.vat_rate));
+  }
+  return total;
+}
+
+// Authoritative PGE-actual cumulative savings calculation.
+// For each month with a PGE invoice row:
+//   actual_cost = grid_import × effective_price_brutto + monthly_fixed
+//   hypothetical_cost_no_pv = (avg pre-PV monthly consumption) × effective_price_brutto
+//                              + monthly_fixed
+//   savings = hypothetical - actual + deposit_value_pln
+// Returns total savings in PLN brutto since first invoice.
+export function calculatePgeActualSavings(args: {
+  invoices: HistoricalPgeInvoice[];
+  components: TariffComponent[];
+  avgPrePvMonthlyKwh: number;
+}): {
+  totalSavings: number;
+  totalActualCost: number;
+  totalHypotheticalNoPv: number;
+  totalDepositPln: number;
+  monthsCounted: number;
+} {
+  const { invoices, components, avgPrePvMonthlyKwh } = args;
+
+  let totalActual = 0;
+  let totalHypo = 0;
+  let totalDeposit = 0;
+
+  for (const inv of invoices) {
+    const ym = inv.month_date.slice(0, 7);
+    const pricePerKwh = getEffectivePricePerKwhBrutto(components, ym);
+    const monthlyFixed = getMonthlyFixedFromComponents(components, ym);
+
+    const actualCost = Number(inv.grid_import_kwh) * pricePerKwh + monthlyFixed;
+    const hypoCost = avgPrePvMonthlyKwh * pricePerKwh + monthlyFixed;
+
+    totalActual += actualCost;
+    totalHypo += hypoCost;
+    totalDeposit += Number(inv.deposit_value_pln);
+  }
+
+  return {
+    totalSavings: Math.max(totalHypo - totalActual + totalDeposit, 0),
+    totalActualCost: totalActual,
+    totalHypotheticalNoPv: totalHypo,
+    totalDepositPln: totalDeposit,
+    monthsCounted: invoices.length,
+  };
 }

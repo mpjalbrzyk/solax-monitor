@@ -11,10 +11,11 @@ import {
 import { CheckCircle2, Wallet, Sun, ArrowUpFromLine, Zap } from "lucide-react";
 import {
   getActiveInverter,
-  getActiveTariff,
   getCumulativeFinancials,
   getDailyAggregates,
   getHistoricalConsumption,
+  getHistoricalPgeInvoices,
+  getTariffComponents,
 } from "@/lib/data/queries";
 import { todayWarsaw, shiftDateString, PL_MONTH_SHORT } from "@/lib/date";
 import {
@@ -24,10 +25,7 @@ import {
   formatNumber,
   formatDateLong,
 } from "@/lib/format";
-import {
-  getMonthlyFixedCharges,
-  getZoneRateBrutto,
-} from "@/lib/tariff";
+import { calculatePgeActualSavings } from "@/lib/tariff";
 
 export const metadata = { title: "Finanse" };
 export const dynamic = "force-dynamic";
@@ -50,12 +48,14 @@ export default async function FinancialPage() {
   const today = todayWarsaw();
   const oneYearAgo = shiftDateString(today, -365);
 
-  const [cumulative, lastYearDailies, history, tariff] = await Promise.all([
-    getCumulativeFinancials(inverter.id),
-    getDailyAggregates(inverter.id, oneYearAgo, today),
-    getHistoricalConsumption(inverter.id),
-    getActiveTariff(inverter.id, today),
-  ]);
+  const [cumulative, lastYearDailies, history, pgeInvoices, components] =
+    await Promise.all([
+      getCumulativeFinancials(inverter.id),
+      getDailyAggregates(inverter.id, oneYearAgo, today),
+      getHistoricalConsumption(inverter.id),
+      getHistoricalPgeInvoices(inverter.id),
+      getTariffComponents(inverter.id),
+    ]);
 
   // === SOLAX-REPORTED (z daily_aggregates) ===
   const solaxNet = cumulative.total_net_pln;
@@ -65,12 +65,10 @@ export default async function FinancialPage() {
   const solaxYield = cumulative.total_yield_kwh;
   const daysWithData = cumulative.days_count;
 
-  // === PGE-ACTUAL (z historical_yearly_consumption × tariff brutto) ===
-  // Historical 2015-2025 wskazuje ile dom by ZUŻYŁ z sieci, gdyby nie było PV.
-  // Pomnożone przez taryfę brutto = ile by zapłacili. Suma = nieosiągnięta
-  // alternatywa.
-  const ratePln = getZoneRateBrutto(tariff);
-  const fixedMonthly = getMonthlyFixedCharges(tariff);
+  // === PGE-ACTUAL (z 37 mies. PGE invoices + tariff_components) ===
+  // Liczymy per miesiąc: hipotetyczny koszt bez PV (avg pre-PV × cena/kWh dla
+  // tego miesiąca) minus actual_cost (import × cena/kWh) plus deposit z RCE.
+  // To radykalnie precyzyjniejsze niż stara logika "× ratePln × lat".
   const installDate = inverter.installation_date
     ? new Date(inverter.installation_date)
     : null;
@@ -78,38 +76,26 @@ export default async function FinancialPage() {
     ? (Date.now() - installDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
     : 0;
 
-  // Średnie roczne zużycie pre-PV z arkusza brata (2015-2022)
   const prePvYears = history.filter((h) => h.year < 2023);
-  const avgPrePvKwh =
+  const avgPrePvKwhYearly =
     prePvYears.length > 0
       ? prePvYears.reduce(
           (s, h) => s + Number(h.consumption_from_grid_kwh ?? 0),
           0,
         ) / prePvYears.length
-      : 5000;
+      : 5959;
+  const avgPrePvMonthlyKwh = avgPrePvKwhYearly / 12;
 
-  // Hipotetyczny koszt energii bez PV w okresie po instalacji
-  const hypotheticalCostNoPv =
-    avgPrePvKwh * yearsSinceInstall * ratePln;
-  // + opłaty stałe które i tak są płacone (te się NIE oszczędzają)
-  const fixedTotalSinceInstall = fixedMonthly * yearsSinceInstall * 12;
-  // PGE-actual savings = ile by zapłacili bez PV - ile zapłacili z PV
-  // Z PV koszt to: import × ratePln + opłaty stałe — ale my mamy
-  // tylko Solax import (niedoszacowany). Lepsza miara: bezpośrednio
-  // historical_yearly_consumption.total_cost_brutto_pln dla post-PV lat.
-  const postPvHistory = history.filter(
-    (h) => h.year >= 2023 && h.total_cost_brutto_pln != null,
-  );
-  const actualPaidSinceInstall = postPvHistory.reduce(
-    (s, h) => s + Number(h.total_cost_brutto_pln ?? 0),
-    0,
-  );
-  const pgeActualSavings = Math.max(
-    hypotheticalCostNoPv +
-      fixedTotalSinceInstall -
-      (actualPaidSinceInstall + fixedTotalSinceInstall),
-    0,
-  );
+  const pgeActual = calculatePgeActualSavings({
+    invoices: pgeInvoices,
+    components,
+    avgPrePvMonthlyKwh,
+  });
+
+  const pgeActualSavings = pgeActual.totalSavings;
+  const pgeMonthsCounted = pgeActual.monthsCounted;
+  const totalActualPaid = pgeActual.totalActualCost;
+  const totalDepositPln = pgeActual.totalDepositPln;
 
   // === BREAK-EVEN ===
   const breakEvenTarget = Number(inverter.installation_cost_pln ?? 24000);
@@ -274,8 +260,8 @@ export default async function FinancialPage() {
               {formatPln(pgeActualSavings)}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              Pre-PV średnia {formatNumber(avgPrePvKwh, 0)} kWh/rok ×{" "}
-              {formatNumber(yearsSinceInstall, 1)} lat
+              {pgeMonthsCounted} mies. z faktur PGE · pre-PV avg{" "}
+              {formatNumber(avgPrePvKwhYearly, 0)} kWh/rok
             </div>
           </CardContent>
         </Card>

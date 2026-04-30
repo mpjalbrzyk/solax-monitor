@@ -124,3 +124,41 @@ export type HistoricalYearlyConsumption = {
   total_cost_brutto_pln: number | null;
   notes: string | null;
 };
+
+export type HistoricalPgeInvoice = {
+  month_date: string; // YYYY-MM-DD (first of month)
+  grid_import_kwh: number;
+  grid_export_kwh: number;
+  billing_model: "rcem" | "rce" | "rce_x_1.23";
+  rcem_pln_per_kwh: number | null;
+  rce_avg_pln_per_kwh: number | null;
+  deposit_multiplier: number; // 1.00 or 1.23
+  deposit_value_pln: number;
+  invoice_no: string | null;
+  data_source: "pge_invoice" | "tariff_md_extracted" | "estimated";
+  notes: string | null;
+};
+
+export type PgeInvoice = {
+  invoice_no: string;
+  invoice_type: "settlement" | "forecast" | "correction" | "interest";
+  issued_date: string;
+  due_date: string | null;
+  paid_date: string | null;
+  period_from: string | null;
+  period_to: string | null;
+  amount_brutto_pln: number;
+  amount_after_deposit_pln: number | null;
+  deposit_applied_pln: number | null;
+  status: "pending" | "paid" | "paid_late" | "compensated" | "cancelled";
+  notes: string | null;
+};
+
+export type TariffComponent = {
+  effective_from: string;
+  effective_to: string | null;
+  component_code: string;
+  unit_rate_netto: number | null; // PLN/kWh
+  monthly_rate_netto: number | null; // PLN/month
+  vat_rate: number;
+};

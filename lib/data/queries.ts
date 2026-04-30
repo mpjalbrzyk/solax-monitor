@@ -3,10 +3,13 @@ import { getServiceClient } from "./client";
 import type {
   DailyAggregate,
   DeviceRealtimeReading,
+  HistoricalPgeInvoice,
   HistoricalYearlyConsumption,
   InverterAlarm,
   MonthlyAggregate,
+  PgeInvoice,
   PlantRealtimeReading,
+  TariffComponent,
   Tariff,
   UserInverter,
 } from "./types";
@@ -215,6 +218,65 @@ export async function getHistoricalConsumption(
     return [];
   }
   return (data as HistoricalYearlyConsumption[]) ?? [];
+}
+
+export async function getHistoricalPgeInvoices(
+  inverterId: string,
+): Promise<HistoricalPgeInvoice[]> {
+  const supabase = getServiceClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("historical_pge_invoices")
+    .select(
+      "month_date, grid_import_kwh, grid_export_kwh, billing_model, rcem_pln_per_kwh, rce_avg_pln_per_kwh, deposit_multiplier, deposit_value_pln, invoice_no, data_source, notes",
+    )
+    .eq("inverter_id", inverterId)
+    .order("month_date", { ascending: true });
+
+  if (error) {
+    console.error("[getHistoricalPgeInvoices]", error.message);
+    return [];
+  }
+  return (data as HistoricalPgeInvoice[]) ?? [];
+}
+
+export async function getPgeInvoices(inverterId: string): Promise<PgeInvoice[]> {
+  const supabase = getServiceClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("pge_invoices")
+    .select("*")
+    .eq("inverter_id", inverterId)
+    .order("issued_date", { ascending: false });
+
+  if (error) {
+    console.error("[getPgeInvoices]", error.message);
+    return [];
+  }
+  return (data as PgeInvoice[]) ?? [];
+}
+
+export async function getTariffComponents(
+  inverterId: string,
+): Promise<TariffComponent[]> {
+  const supabase = getServiceClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("tariff_components")
+    .select(
+      "effective_from, effective_to, component_code, unit_rate_netto, monthly_rate_netto, vat_rate",
+    )
+    .eq("inverter_id", inverterId)
+    .order("effective_from", { ascending: true });
+
+  if (error) {
+    console.error("[getTariffComponents]", error.message);
+    return [];
+  }
+  return (data as TariffComponent[]) ?? [];
 }
 
 // Sum cumulative savings/cost/earnings over all daily aggregates — used by
