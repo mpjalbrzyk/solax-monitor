@@ -226,83 +226,81 @@ export default async function FinancialPage() {
         </CardContent>
       </Card>
 
-      {/* === Two-source comparison === */}
+      {/* === Two-source comparison — VISIBLE descriptions per Michał === */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
         <Card className="glass">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              <span>Solax-reported</span>
-              <InfoHint>{GLOSSARY.solaxReported}</InfoHint>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span className="size-2 rounded-full bg-[var(--pv)]" />
+              <span>Tempo Solax (z pomiarów inwertera)</span>
             </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Suma z {daysWithData} dni rozliczonych przez Edge Function
+            <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+              Suma z {daysWithData} dni rozliczonych przez Edge Function na
+              bazie odczytów inwertera. Optymistyczne — Solax zaniża pobór
+              prądu z sieci, więc bilans wychodzi większy niż realny.
             </p>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold tabular-nums">
               {formatPln(solaxNet)}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Niedoszacowane — Solax raportuje zaniżony pobór z sieci. Faktura
-              PGE pokazuje znacznie więcej.
-            </div>
           </CardContent>
         </Card>
         <Card className="glass">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-              <span>PGE-actual</span>
-              <InfoHint>{GLOSSARY.pgeActual}</InfoHint>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <span className="size-2 rounded-full bg-[var(--savings)]" />
+              <span>Tempo realne (z faktur PGE)</span>
             </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Z faktur PGE i historycznego zużycia rodziny przed PV
+            <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+              Hipotetyczny koszt energii bez fotowoltaiki (na bazie zużycia
+              rodziny 2015-2022, śr.{" "}
+              {formatNumber(avgPrePvKwhYearly, 0)} kWh/rok) minus to co
+              faktycznie zapłaciliśmy PGE w {pgeMonthsCounted} miesiącach
+              po montażu, plus depozyt z eksportu. Najbliższe prawdy.
             </p>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold tabular-nums">
               {formatPln(pgeActualSavings)}
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {pgeMonthsCounted} mies. z faktur PGE · pre-PV avg{" "}
-              {formatNumber(avgPrePvKwhYearly, 0)} kWh/rok
-            </div>
           </CardContent>
         </Card>
       </section>
 
-      {/* === Breakdown === */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      {/* === Breakdown — visible descriptions per Michał === */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <KpiTile
           icon={Sun}
-          label="Produkcja PV (lifetime)"
+          label="Łączna produkcja"
           value={formatKwh(solaxYield, 1)}
           sub={`${daysWithData} dni z danymi`}
+          description="Energia wyprodukowana przez panele od początku zbierania danych. Pełen lifetime z licznika inwertera ~17,7 MWh — różnica to dane sprzed Solax API (luty 2023 – marzec 2025)."
           tone="pv"
-          hint={GLOSSARY.produkcjaLifetime}
         />
         <KpiTile
           icon={Wallet}
-          label="Oszczędności z autokonsumpcji"
+          label="Autokonsumpcja"
           value={formatPln(solaxSavings)}
-          sub="produkcja zużyta na miejscu"
+          sub="zużyte w domu od razu"
+          description="Energia ze słońca zużyta natychmiast w domu × cena G11. Pieniądze które nie poszły do PGE — najwartościowszy strumień, bo cena zakupu jest 3-5× wyższa niż cena odkupu."
           tone="savings"
-          hint={GLOSSARY.autokonsumpcja}
         />
         <KpiTile
           icon={ArrowUpFromLine}
-          label="Przychód z eksportu (RCEm)"
+          label="Eksport do sieci"
           value={formatPln(solaxEarnings)}
-          sub="net-billing"
+          sub="net-billing PGE"
+          description="Nadwyżka oddana do sieci × Rynkowa Cena Energii (RCEm dla 2023, RCE dla 2024+, ×1,23 od 02.2025). PGE odkłada to jako kredyt w depozycie prosumenckim — odlicza od następnej faktury."
           tone="export"
-          hint={GLOSSARY.rcem}
         />
         <KpiTile
           icon={Zap}
-          label="Koszt poboru z sieci"
+          label="Koszt poboru"
           value={formatPln(solaxCost)}
-          sub="zmienna część taryfy"
+          sub="z taryfy G11"
+          description="Energia pobrana z sieci wieczorem i nocą × pełna cena taryfy G11 brutto (~1,10 zł/kWh). To są pieniądze które realnie poszły do PGE za prąd zużyty po zachodzie słońca."
           tone="import"
-          hint={GLOSSARY.importPobor}
         />
       </section>
 

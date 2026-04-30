@@ -25,6 +25,7 @@ export function KpiTile({
   label,
   value,
   sub,
+  description,
   tone = "neutral",
   hint,
 }: {
@@ -32,6 +33,10 @@ export function KpiTile({
   label: string;
   value: string;
   sub?: string;
+  /** 1-2 sentence inline description shown directly under the tile,
+   * always visible (no click required). Use for terms users wouldn't
+   * intuitively understand (RCEm, autokonsumpcja, etc). */
+  description?: string;
   tone?: Tone;
   hint?: string;
 }) {
@@ -47,6 +52,11 @@ export function KpiTile({
       <CardContent>
         <div className="text-2xl font-semibold tabular-nums">{value}</div>
         {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+        {description && (
+          <p className="text-[11px] text-muted-foreground/90 mt-2 leading-snug border-t border-zinc-200/40 pt-2">
+            {description}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
