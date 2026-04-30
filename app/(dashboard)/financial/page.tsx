@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
+import { InfoHint } from "@/components/dashboard/info-hint";
+import { GLOSSARY } from "@/lib/copy/glossary";
 import {
   ForecastChart,
   type ForecastPoint,
@@ -196,8 +198,9 @@ export default async function FinancialPage() {
           <div className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                  Bilans inwestycji
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1 flex items-center gap-1.5">
+                  <span>Bilans inwestycji</span>
+                  <InfoHint>{GLOSSARY.bilansInwestycji}</InfoHint>
                 </div>
                 <div className="text-3xl sm:text-4xl font-semibold tabular-nums">
                   {formatPln(bestEstimateNet)}
@@ -224,8 +227,9 @@ export default async function FinancialPage() {
                 {formatPln(subsidy)}
               </span>
               {breakEvenYear && (
-                <span>
+                <span className="flex items-center gap-1.5">
                   Próg zwrotu: <strong>{breakEvenYear}</strong>
+                  <InfoHint>{GLOSSARY.progZwrotu}</InfoHint>
                 </span>
               )}
             </div>
@@ -237,8 +241,9 @@ export default async function FinancialPage() {
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
         <Card className="glass">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Solax-reported
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              <span>Solax-reported</span>
+              <InfoHint>{GLOSSARY.solaxReported}</InfoHint>
             </CardTitle>
             <p className="text-xs text-muted-foreground">
               Suma z {daysWithData} dni rozliczonych przez Edge Function
@@ -249,14 +254,17 @@ export default async function FinancialPage() {
               {formatPln(solaxNet)}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              Niedoszacowane — Solax nie liczy energii idącej do baterii
-              jako importu (api-spec sec 7.1)
+              Niedoszacowane — Solax raportuje zaniżony pobór z sieci. Faktura
+              PGE pokazuje znacznie więcej.
             </div>
           </CardContent>
         </Card>
         <Card className="glass">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">PGE-actual</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              <span>PGE-actual</span>
+              <InfoHint>{GLOSSARY.pgeActual}</InfoHint>
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               Z faktur PGE i historycznego zużycia rodziny przed PV
             </p>
@@ -281,6 +289,7 @@ export default async function FinancialPage() {
           value={formatKwh(solaxYield, 1)}
           sub={`${daysWithData} dni z danymi`}
           tone="pv"
+          hint={GLOSSARY.produkcjaLifetime}
         />
         <KpiTile
           icon={Wallet}
@@ -288,6 +297,7 @@ export default async function FinancialPage() {
           value={formatPln(solaxSavings)}
           sub="produkcja zużyta na miejscu"
           tone="savings"
+          hint={GLOSSARY.autokonsumpcja}
         />
         <KpiTile
           icon={ArrowUpFromLine}
@@ -295,6 +305,7 @@ export default async function FinancialPage() {
           value={formatPln(solaxEarnings)}
           sub="net-billing"
           tone="export"
+          hint={GLOSSARY.rcem}
         />
         <KpiTile
           icon={Zap}
@@ -302,6 +313,7 @@ export default async function FinancialPage() {
           value={formatPln(solaxCost)}
           sub="zmienna część taryfy"
           tone="import"
+          hint={GLOSSARY.importPobor}
         />
       </section>
 

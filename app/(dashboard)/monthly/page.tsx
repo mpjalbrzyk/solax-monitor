@@ -15,6 +15,7 @@ import {
   lastOfMonth,
 } from "@/lib/date";
 import { formatKwh, formatMonthYear, formatPln, formatDateShort } from "@/lib/format";
+import { GLOSSARY } from "@/lib/copy/glossary";
 
 export const metadata = { title: "Miesiąc" };
 export const dynamic = "force-dynamic";
@@ -122,6 +123,7 @@ export default async function MonthlyPage({
           value={formatKwh(totalYield)}
           sub={`${daysWithData} dni z danymi`}
           tone="pv"
+          hint={GLOSSARY.produkcjaLifetime}
         />
         <KpiTile
           icon={TrendingUp}
@@ -129,6 +131,7 @@ export default async function MonthlyPage({
           value={formatKwh(avgDaily)}
           sub="z dni z danymi"
           tone="pv"
+          hint={GLOSSARY.sredniaDzienna}
         />
         <KpiTile
           icon={Wallet}
@@ -136,6 +139,7 @@ export default async function MonthlyPage({
           value={formatPln(totalSavings)}
           sub="oszczędności + eksport − pobór"
           tone="savings"
+          hint={GLOSSARY.bilansFinansowyMiesiaca}
         />
         <KpiTile
           icon={CalendarCheck}
@@ -147,6 +151,7 @@ export default async function MonthlyPage({
           }
           sub={top3[0] ? formatDateShort(top3[0].date) : undefined}
           tone="pv"
+          hint={GLOSSARY.najlepszyDzien}
         />
       </section>
 

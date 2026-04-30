@@ -13,6 +13,7 @@ import {
 } from "@/lib/data/queries";
 import { deriveEnergyFlow, deriveFlowArrows, buildLiveCommentary } from "@/lib/derive";
 import { formatKwh, formatPercent, formatPln, formatPower } from "@/lib/format";
+import { GLOSSARY } from "@/lib/copy/glossary";
 
 export const metadata = { title: "Przegląd" };
 export const dynamic = "force-dynamic";
@@ -103,6 +104,7 @@ export default async function OverviewPage() {
           value={formatPower(flow.pvW)}
           sub={`Dziś ${formatKwh(dailyYield)}`}
           tone="pv"
+          hint={GLOSSARY.produkcjaTeraz}
         />
         <KpiTile
           icon={Zap}
@@ -116,6 +118,7 @@ export default async function OverviewPage() {
                 : "Bilans zerowy"
           }
           tone={flow.gridW < -50 ? "import" : "export"}
+          hint={GLOSSARY.domZuzywa}
         />
         <KpiTile
           icon={Wallet}
@@ -123,6 +126,7 @@ export default async function OverviewPage() {
           value={formatPln(monthlySavings)}
           sub={`${dailyRange.length} dni rozliczonych`}
           tone="savings"
+          hint={GLOSSARY.oszczednosciMiesiaca}
         />
         {flow.hasBattery ? (
           <KpiTile
@@ -137,6 +141,7 @@ export default async function OverviewPage() {
                   : "Stoi"
             }
             tone="savings"
+            hint={GLOSSARY.bateria}
           />
         ) : (
           <KpiTile
@@ -145,6 +150,7 @@ export default async function OverviewPage() {
             value="Brak"
             sub="Falownik bez magazynu"
             tone="neutral"
+            hint={GLOSSARY.bateria}
           />
         )}
       </section>

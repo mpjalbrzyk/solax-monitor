@@ -9,6 +9,7 @@ import { Sun, TrendingUp, Calendar, Sparkles } from "lucide-react";
 import { getActiveInverter, getMonthlyAggregates } from "@/lib/data/queries";
 import { PL_MONTH_SHORT, todayWarsaw } from "@/lib/date";
 import { formatKwh, formatMwh } from "@/lib/format";
+import { GLOSSARY } from "@/lib/copy/glossary";
 
 export const metadata = { title: "Rok do roku" };
 export const dynamic = "force-dynamic";
@@ -121,6 +122,7 @@ export default async function YearlyPage() {
           value={formatKwh(currentYearTotal, 1)}
           sub={`Do końca ${PL_MONTH_SHORT[todayMonth - 1].toLowerCase()}`}
           tone="pv"
+          hint={GLOSSARY.produkcjaLifetime}
         />
         <KpiTile
           icon={Calendar}
@@ -132,6 +134,7 @@ export default async function YearlyPage() {
               : "brak danych w bazie"
           }
           tone="export"
+          hint={GLOSSARY.produkcjaLifetime}
         />
         <KpiTile
           icon={TrendingUp}
@@ -147,6 +150,7 @@ export default async function YearlyPage() {
               : "brak roku odniesienia"
           }
           tone={yoyDelta != null && yoyDelta >= 0 ? "savings" : "import"}
+          hint={GLOSSARY.yoyPorownanie}
         />
         <KpiTile
           icon={Sparkles}
@@ -154,6 +158,7 @@ export default async function YearlyPage() {
           value={bestMonth ? formatKwh(bestMonth.kwh, 1) : "—"}
           sub={bestMonth ? formatYM(bestMonth.ym) : undefined}
           tone="pv"
+          hint={GLOSSARY.najlepszyMiesiac}
         />
       </section>
 

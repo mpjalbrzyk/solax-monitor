@@ -19,6 +19,7 @@ import {
   warsawHourLabel,
 } from "@/lib/date";
 import { formatDateLong, formatKwh, formatPln, formatPower } from "@/lib/format";
+import { GLOSSARY } from "@/lib/copy/glossary";
 
 export const metadata = { title: "Dziś" };
 export const dynamic = "force-dynamic";
@@ -127,6 +128,7 @@ export default async function DailyPage({
           value={formatKwh(dailyAgg?.yield_kwh)}
           sub={`Szczyt ${formatPower(peakProductionW)}`}
           tone="pv"
+          hint={GLOSSARY.produkcjaTeraz}
         />
         <KpiTile
           icon={Zap}
@@ -138,6 +140,7 @@ export default async function DailyPage({
               : undefined
           }
           tone="export"
+          hint={GLOSSARY.autokonsumpcja}
         />
         <KpiTile
           icon={ArrowDownToLine}
@@ -149,6 +152,7 @@ export default async function DailyPage({
               : undefined
           }
           tone="import"
+          hint={GLOSSARY.importPobor}
         />
         <KpiTile
           icon={ArrowUpFromLine}
@@ -160,6 +164,7 @@ export default async function DailyPage({
               : undefined
           }
           tone="export"
+          hint={GLOSSARY.eksport}
         />
       </section>
 

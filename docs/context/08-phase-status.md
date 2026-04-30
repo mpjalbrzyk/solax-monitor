@@ -438,6 +438,53 @@ Po włączeniu env vars i pierwszym wejściu Michała na `solax-monitor.vercel.a
 
 Dane do uzyskania od Krzysztofa, niekrytyczne na MVP. Można dorzucić w trakcie Fazy 6 gdy będzie potrzebne dla mailowych digestów.
 
+---
+
+## Faza 3 — copy & UX polish (30.04.2026 wieczorem, dalej)
+
+Po pierwszym żywym wejściu Michała na production:
+
+### Tooltipy "Co to znaczy?" wszędzie
+
+**Problem:** Michał patrząc na "PGE-actual" / "Solax-reported" / "Próg zwrotu" / "RCEm" / "Autokonsumpcja" musi pamiętać co to znaczy. Tata patrzący pierwszy raz nie wie. Brakowało in-context help.
+
+**Rozwiązanie:**
+- `lib/copy/glossary.ts` — 19 polskich definicji (1-3 zdania każda) dla wszystkich metryk dashboardu
+- `components/dashboard/info-hint.tsx` — komponent z ikoną Info i glass tooltipem, korzysta z shadcn Tooltip (base-ui pod spodem)
+- `KpiTile` ma teraz opcjonalny prop `hint` — automatycznie rendruje ikonę Info obok labela
+- Każda strona dashboardu (Overview/Daily/Monthly/Yearly/Financial) ma hinty na KPI tiles
+- Financial hero ma hinty na "Bilans inwestycji", "Próg zwrotu", "Solax-reported", "PGE-actual"
+
+### Lepszy narrator dla edge case "dzień ale 0 W"
+
+**Problem:** narrator mówił "Słońce nie świeci, panele odpoczywają" gdy faktycznie było 17:00 popołudniu i falownik wyrzucił 0 W (chmury / glitch Solax).
+
+**Fix:** `lib/derive/buildLiveCommentary` rozróżnia trzy stany przy `pvW < 50`:
+- godzina 21:00–05:00 Warsaw: "Słońce nie świeci, panele odpoczywają" (faktyczna noc)
+- dzień + dailyYield > 0.5 kWh: "Panele teraz nie produkują — pewnie chmury albo falownik się wyciszył"
+- dzień + brak produkcji dziś: "Panele jeszcze nie ruszyły dziś z produkcją"
+
+W Fazie 4 narrator dostanie warstwę Claude API z tool calls, rules-based zostaje jako fallback gdy budget jest exhausted lub API niedostępne.
+
+### Folder structure dla dokumentów rodziny
+
+**Problem:** Michał ma faktury PGE 2023/2024/2025, umowy SunWise, decyzje dotacji NFOŚiGW — chce wrzucić skany żebym mógł je czytać i precyzyjnie wpisywać dane do bazy.
+
+**Rozwiązanie:** dorzucony `docs/README.md` z mapą folderów + workflow:
+- `docs/source-documents/` (gitignored, istnieje) — faktury SunWise, przelewy, NFOŚiGW
+- `docs/pge-invoices/` (gitignored, istnieje) — faktury PGE roczne i miesięczne
+- `docs/solax-pdfs/` (gitignored, istnieje) — manuale producenta dla Fazy 5 (RAG)
+- `docs/private/` (gitignored, istnieje) — `financials.md`
+
+Workflow: Michał skanuje, wrzuca, mówi mi w czacie nazwę pliku → ja używam Read tool → wpisuję dane do `historical_yearly_consumption` / `monthly_aggregates` / `tariffs.rcem_history` → migracja → push.
+
+### Co jeszcze odłożone do następnych faz
+
+- AI live commentary (Claude API + tool calling) — dochodzi w Fazie 4
+- Tooltipy w Energy Flow nodes (są w KPI tiles, dodanie do energy flow nodes mało priorytetowe — chyba że Michał poprosi)
+- "Bilans dnia" karta na /daily ma własny opis ale nie ma hint — można dorzucić jeśli okaże się mylące
+- Pixel-perfect design polish — Faza 7
+
 ## Co jest gotowe do startu Fazy 2 (historyczne, archiwum)
 
 ## Co jest gotowe do startu Fazy 1 (historyczne, archiwum)

@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InfoHint } from "./info-hint";
 import type { LucideIcon } from "lucide-react";
 
 type Tone = "pv" | "savings" | "import" | "export" | "neutral";
@@ -25,18 +26,21 @@ export function KpiTile({
   value,
   sub,
   tone = "neutral",
+  hint,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
   sub?: string;
   tone?: Tone;
+  hint?: string;
 }) {
   return (
     <Card className={`glass ${toneRing[tone]}`}>
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          {label}
+        <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+          <span>{label}</span>
+          {hint && <InfoHint>{hint}</InfoHint>}
         </CardTitle>
         <Icon className={`size-4 ${toneIcon[tone]}`} />
       </CardHeader>

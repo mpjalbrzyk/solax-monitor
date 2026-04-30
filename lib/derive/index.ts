@@ -101,7 +101,21 @@ export function buildLiveCommentary(args: {
   const lines: string[] = [];
 
   if (flow.isNight) {
-    lines.push("Słońce nie świeci, panele odpoczywają.");
+    // Try to distinguish actual night vs cloudy/idle daytime by checking if
+    // there's already been meaningful production today.
+    const warsawHour = warsawHourOf(new Date());
+    const isActualNight = warsawHour < 5 || warsawHour >= 21;
+    const producedToday = dailyYield > 0.5;
+
+    if (isActualNight) {
+      lines.push("Słońce nie świeci, panele odpoczywają.");
+    } else if (producedToday) {
+      lines.push(
+        "Panele teraz nie produkują — pewnie chmury albo falownik się wyciszył.",
+      );
+    } else {
+      lines.push("Panele jeszcze nie ruszyły dziś z produkcją.");
+    }
     if (flow.gridW < -50) {
       lines.push(
         `Dom pobiera ${formatKw(flow.loadW)} z sieci.`,
@@ -137,6 +151,15 @@ export function buildLiveCommentary(args: {
 
 function dailYieldHasValue(v: number) {
   return Number.isFinite(v) && v > 0;
+}
+
+function warsawHourOf(d: Date): number {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Warsaw",
+    hour: "2-digit",
+    hour12: false,
+  });
+  return Number(fmt.format(d));
 }
 
 // Local-only minimal formatter — full polish lives in lib/format. We avoid
