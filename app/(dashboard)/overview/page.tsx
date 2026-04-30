@@ -17,9 +17,18 @@ import {
   getHistoricalPgeInvoices,
   getLatestDeviceReading,
   getLatestPlantReading,
+  getMonthlyAggregates,
   getRecentAlarms,
   getTariffComponents,
 } from "@/lib/data/queries";
+import { GamificationRow } from "@/components/dashboard/gamification-row";
+import { HowItWorks } from "@/components/dashboard/how-it-works";
+import {
+  calculateAchievements,
+  calculatePositiveBalanceStreak,
+  calculateProductionStreak,
+  calculateYearlyGoalProgress,
+} from "@/lib/derive/gamification";
 import {
   buildLiveCommentary,
   deriveEnergyFlow,
@@ -89,6 +98,24 @@ export default async function OverviewPage() {
     getTariffComponents(inverter.id),
     getDailyAggregates(inverter.id, shiftDateString(today, -365), today),
   ]);
+
+  // Year-to-date for yearly goal — separate query, broader window
+  const ytdDailies = await getDailyAggregates(
+    inverter.id,
+    `${today.slice(0, 4)}-01-01`,
+    today,
+  );
+  const allMonthly = await getMonthlyAggregates(inverter.id);
+
+  // === Gamification ===
+  const productionStreak = calculateProductionStreak(lastYearDailies);
+  const balanceStreak = calculatePositiveBalanceStreak(lastYearDailies);
+  const yearlyGoal = calculateYearlyGoalProgress(
+    ytdDailies,
+    allMonthly,
+    today,
+  );
+  const achievements = calculateAchievements(lastYearDailies, allMonthly);
 
   // === Energy flow ===
   const flow = deriveEnergyFlow(inverterDevice, batteryDevice);
@@ -277,8 +304,21 @@ export default async function OverviewPage() {
         />
       </section>
 
-      {/* === STREFA 4 — alarmy === */}
-      <AlarmsWidget alarms={alarms} />
+      {/* === STREFA 4 — Grywalizacja === */}
+      <div className="mb-4">
+        <GamificationRow
+          productionStreak={productionStreak}
+          balanceStreak={balanceStreak}
+          yearlyGoal={yearlyGoal}
+          achievements={achievements}
+        />
+      </div>
+
+      {/* === STREFA 5 — Edukacja + alarmy === */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <HowItWorks />
+        <AlarmsWidget alarms={alarms} />
+      </div>
     </>
   );
 }
