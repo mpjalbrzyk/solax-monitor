@@ -6,7 +6,10 @@ import type { Tariff } from "@/lib/data/types";
 
 export function getZoneRateBrutto(tariff: Tariff | null): number {
   if (!tariff || !tariff.zones || tariff.zones.length === 0) return 0;
-  return Number(tariff.zones[0].rate_brutto_pln_kwh) || 0;
+  // DB seed uses `price_brutto_pln_kwh`; older drafts had `rate_brutto_pln_kwh`.
+  // Read both for safety.
+  const z = tariff.zones[0] as Record<string, unknown>;
+  return Number(z.price_brutto_pln_kwh ?? z.rate_brutto_pln_kwh) || 0;
 }
 
 export function getMonthlyFixedCharges(tariff: Tariff | null): number {

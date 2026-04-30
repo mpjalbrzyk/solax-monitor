@@ -19,6 +19,29 @@ export type ForecastPoint = {
   isProjection: boolean;
 };
 
+// Single data array, two parallel series. The actual series is null beyond the
+// last historical point; the projection series is null before it (with a
+// single overlap so the lines connect cleanly).
+type EnrichedPoint = {
+  yearLabel: string;
+  actual: number | null;
+  projection: number | null;
+};
+
+function enrich(data: ForecastPoint[]): EnrichedPoint[] {
+  let lastActualIdx = -1;
+  data.forEach((d, i) => {
+    if (!d.isProjection) lastActualIdx = i;
+  });
+  return data.map((d, i) => ({
+    yearLabel: d.yearLabel,
+    actual: !d.isProjection ? d.cumulative_pln : null,
+    // Connect: include the last actual point in the projection series too,
+    // so the dashed line touches the solid area without a gap.
+    projection: d.isProjection || i === lastActualIdx ? d.cumulative_pln : null,
+  }));
+}
+
 export function ForecastChart({
   data,
   breakEvenPln,
@@ -34,25 +57,13 @@ export function ForecastChart({
     );
   }
 
-  // Split data into actual vs projection so we can style them differently.
-  const actualSeries = data.map((d) =>
-    d.isProjection ? { ...d, cumulative_pln: undefined } : d,
-  );
-  const projectionSeries = data.map((d, idx) => {
-    // Connect projection start to last actual value so the line is continuous.
-    if (!d.isProjection) {
-      const next = data[idx + 1];
-      if (next?.isProjection) return d;
-      return { ...d, cumulative_pln: undefined };
-    }
-    return d;
-  });
+  const enriched = enrich(data);
 
   return (
     <div className="h-72 sm:h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
-          data={data}
+          data={enriched}
           margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
         >
           <defs>
@@ -71,6 +82,7 @@ export function ForecastChart({
             tick={{ fontSize: 11, fill: CHART_COLORS.axis }}
             axisLine={false}
             tickLine={false}
+            interval="preserveStartEnd"
           />
           <YAxis
             tickFormatter={chartTickPln}
@@ -100,8 +112,7 @@ export function ForecastChart({
           />
           <Area
             type="monotone"
-            data={actualSeries}
-            dataKey="cumulative_pln"
+            dataKey="actual"
             name="Bilans rzeczywisty"
             stroke={CHART_COLORS.savings}
             strokeWidth={2}
@@ -111,8 +122,7 @@ export function ForecastChart({
           />
           <Line
             type="monotone"
-            data={projectionSeries}
-            dataKey="cumulative_pln"
+            dataKey="projection"
             name="Prognoza"
             stroke={CHART_COLORS.savings}
             strokeWidth={2}

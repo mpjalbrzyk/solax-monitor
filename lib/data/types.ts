@@ -104,7 +104,12 @@ export type Tariff = {
   seller: string;
   tariff_code: string;
   is_net_billing: boolean;
-  zones: { name: string; rate_brutto_pln_kwh: number }[];
+  zones: {
+    name: string;
+    price_brutto_pln_kwh: number;
+    hours?: number[];
+    days_of_week?: number[];
+  }[];
   fixed_handling_pln_month: number | null;
   fixed_distribution_pln_month: number | null;
   fixed_capacity_pln_month: number | null;

@@ -385,6 +385,59 @@ Wniosek: token jest typu Restricted/Service Account — REST API potwierdza toż
 
 **Następna faza:** 4 (chatbot operacyjny). Wymaga rozstrzygnięcia O-003 (status fizycznej baterii) — bez tego chatbot odpowie na "ile mam w baterii" gdy jej nie ma. Pytanie do Krzysztofa otwarte.
 
+---
+
+## Faza 3 — bugfixy po pierwszym uruchomieniu na production (30.04.2026 wieczorem)
+
+Po włączeniu env vars i pierwszym wejściu Michała na `solax-monitor.vercel.app`:
+
+### Bug 1 (krytyczny): PGE-actual = 0 zł
+
+**Symptom:** kafelek "PGE-actual" pokazywał 0 zł mimo że w `historical_yearly_consumption` były dane pre-PV.
+
+**Przyczyna:** rozjazd nazwy klucza w JSON `tariffs.zones`:
+- Seed wstawił `price_brutto_pln_kwh` (obecna nazwa po `06-tariff.md`)
+- Kod (`lib/data/types.ts` + `lib/tariff/index.ts`) szukał `rate_brutto_pln_kwh` (stara nazwa z drafta)
+- Konsekwencja: `getZoneRateBrutto()` zwracał 0 → hypotheticalCostNoPv = 0 → pgeActualSavings = max(0 - paid, 0) = 0
+
+**Fix (commit następny):** `lib/data/types.ts` Tariff zones zmienione na `price_brutto_pln_kwh` + opcjonalne `hours`/`days_of_week`. `lib/tariff/index.ts` `getZoneRateBrutto` czyta oba klucze (`price_` najpierw, fallback na `rate_`) dla bezpieczeństwa.
+
+### Bug 2: Forecast chart x-axis duplikacja
+
+**Symptom:** prognoza bilansu rendrowała oś X dwa razy (2023-2035 powtarzane).
+
+**Przyczyna:** Recharts `<Area data={A}>` i `<Line data={B}>` z osobnymi `data` arrays dokleja oba sety punktów do osi.
+
+**Fix:** przepisany na jeden `data` na poziomie `<ComposedChart>`, dwa dataKey (`actual` + `projection`) z null-fillem dla nieaktywnych segmentów. Last actual point zachowany w obu seriach żeby linia projekcji touched solid area bez gapu.
+
+### Bug 3 (logiczny, do dyskusji): Solax niedoszacowuje import 89×
+
+**Obserwacja:** Solax-reported koszt poboru z sieci za 13 mies. = **53 zł**. Faktura PGE 2025 jednoroczna = ~4 707 zł (4282 kWh × 1.0991 PLN/kWh).
+
+**Wcześniejsze wyjaśnienie** (do D-012, przed O-003): "Solax nie liczy energii idącej do baterii nocą jako importu". Plot twist: w O-003 ustaliliśmy że bateria fizycznie nie istnieje (display 0.0V). Więc tłumaczenie traci moc.
+
+**Aktualne hipotezy** (do diagnostyki, nieblokujące):
+- Nieprawidłowe okablowanie clamp meter / CT na liniach AC — Solax widzi tylko fragment importu
+- Solax `today_import_energy_kwh` raportuje co innego niż faktura PGE myśli (np. tylko import "do PV-side", nie cały dom)
+- Bug po stronie Solaxa w polach z deviceModel=14 dla X3-Hybrid-10.0-M
+
+**Konsekwencja dla dashboardu:** Solax-reported zawsze będzie zaniżony, dlatego mamy **PGE-actual** jako równoległy numer zbliżony do prawdy. Po fix Bug 1 PGE-actual pokaże ~18 000 zł (przy `installation_cost_pln=24 000` to 75% drogi do break-even, próg zwrotu cofnie się z 2029 na ~2027).
+
+### Bug 4 (data gap): brakujące lata 2024 + cost 2025 w historical_yearly_consumption
+
+**Stan przed fix:** był wpis 2023 z faktury (4073 kWh, 2727 zł), brak 2024, 2025 miało kWh (4282) ale `total_cost_brutto_pln: null`.
+
+**Fix (migracja `20260430134304_fill_historical_gaps.sql`, zaaplikowana na remote):**
+- 2024 wpisany: 4178 kWh = mean(2023, 2025), cost = NULL, notes "PLACEHOLDER — interpolated, replace with real PGE invoice"
+- 2025 cost dosypany: 4707 zł = 4282 × 1.0991, notes "estimated G11 brutto"
+
+**Co potrzeba żeby PGE-actual był 100% precyzyjny:**
+- Faktura PGE 2024 roczna od Krzysztofa → wpisać realne `consumption_from_grid_kwh` + `total_cost_brutto_pln`
+- Faktura PGE 2025 roczna → wpisać realny cost (zamiast naszej estymaty)
+- Faktura PGE 2023 (jeśli istnieje rozłożona) — Michał ma wpis ale tylko ~10 mies. PV (luty start)
+
+Dane do uzyskania od Krzysztofa, niekrytyczne na MVP. Można dorzucić w trakcie Fazy 6 gdy będzie potrzebne dla mailowych digestów.
+
 ## Co jest gotowe do startu Fazy 2 (historyczne, archiwum)
 
 ## Co jest gotowe do startu Fazy 1 (historyczne, archiwum)
