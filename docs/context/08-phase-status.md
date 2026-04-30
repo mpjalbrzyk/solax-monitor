@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 30 kwietnia 2026, koniec Fazy 1.
+**Ostatnia aktualizacja:** 30 kwietnia 2026, koniec Fazy 2.
 
 ---
 
@@ -12,8 +12,8 @@
 |------|-------|--------|------|
 | 0 | Discovery i setup | ✅ DONE (30.04.2026) | ~1 dzień |
 | 1 | Pipeline danych | ✅ DONE (30.04.2026) | ~1 dzień |
-| 2 | Backfill historyczny | 🟡 NEXT | pół dnia plan |
-| 3 | Dashboard webowy | ⏳ pending | 2-3 dni |
+| 2 | Backfill historyczny | ✅ DONE (30.04.2026) | ~30 min |
+| 3 | Dashboard webowy | 🟡 NEXT | 2-3 dni plan |
 | 4 | Chatbot operacyjny | ⏳ pending | 1 dzień |
 | 5 | Chatbot techniczny (RAG) | ⏳ pending | 1 dzień |
 | 7 | Multi-tenant polish | ⏳ pending | 1 dzień |
@@ -149,12 +149,70 @@ Pięć commitów (5-9), wszystkie pushed do `main`. Pipeline danych żyje: cron 
 
 ---
 
-## Co jest gotowe do startu Fazy 2
+---
 
-- Tabele `monthly_aggregates` i `daily_aggregates` istnieją, RLS aktywne
-- `plant/energy/get_stat_data` endpoint Solaxa potwierdzony w api-spec sec 4.3, format zwracanych payloadów rozumiemy
-- `_shared/solax-client.ts` ma `solaxFetch` który obsłuży endpoint `/openapi/v2/plant/energy/get_stat_data` (POST + JSON body) — drobne rozszerzenie dla Fazy 2
-- Token w `api_credentials` świeży, scope obejmuje `API_Telemetry_V2`
+## Faza 2 — co zostało zrobione
+
+Jeden commit (10), pushed do `main`. Skrypt `scripts/backfill-history.mjs` ściąga z Solaxa historyczne agregaty i wpisuje do bazy.
+
+| Commit | Hash | Treść |
+|--------|------|-------|
+| 10 | TBD | `scripts/backfill-history.mjs` + jednorazowy run. Phase A monthly: 16 rowów (2025: 12 miesięcy + 2026: 4 miesiące). Phase B daily: 395 rowów (2025-04 do 2026-04, 13 miesięcy). Plus aplikacja taryfy PGE G11 dla każdego dnia w Phase B (savings/cost/earnings/net w PLN brutto) |
+
+### Kluczowe odkrycie — Solax limit 12 miesięcy wstecz
+
+`04-api-spec.md` sec 13 sugerowała że `plant/energy/get_stat_data` daje 3 lata historii (od daty rejestracji urządzenia, czyli luty 2023). **W praktyce Solax ogranicza zapytania do "past year"** od dziś:
+
+```
+code 10200 PARAM_ERROR: "The date must be within the past year"
+```
+
+Dotyczy zarówno `dateType=1` (annual, czyli rok jako parametr) jak i `dateType=2` (monthly). Dla naszej aplikacji pracującej w kwietniu 2026 to oznacza:
+- **Dostępne**: kwiecień 2025 → kwiecień 2026 (12-13 miesięcy wstecz)
+- **Niedostępne via stat_data**: cały 2024 (nie zaczęty), 2023 (nie zaczęty)
+
+Skrypt został zrobiony resilient — łapie 10200 jako "skip and log" zamiast crashowania. Gdy będziemy uruchamiać aplikację u nowego klienta, ten sam skrypt zaimportuje co API udostępnia w danym momencie.
+
+### Drugie odkrycie — Solax importEnergy niedoszacowany dla naszej instalacji
+
+Solax zwraca `importEnergy` per miesiąc, ale dla naszej instalacji liczby są dramatycznie niższe niż realne dane PGE z faktur:
+
+- Solax 2025 yearly `importEnergy` ≈ **40 kWh**
+- PGE faktura 2025: **4282 kWh** importowane z sieci
+
+Faktor ~100×. Powód: bateria nie jest zarejestrowana w Solax Cloud jako device (api-spec sec 7.1), więc Solax nie wlicza energii idącej z sieci do ładowania baterii nocą jako "import". Praktycznie wszystkie nocne ładowania baterii są poza ich agregacją.
+
+**Konsekwencja dla aplikacji:** wszystkie liczby `cost_pln` i `net_balance_pln` w `daily_aggregates` z Phase B są **ZNACZNIE niedoszacowane**. Phase B sanity check pokazał +1569 PLN net balance za 4 miesiące 2026, ale realnie to mocno zawyżona pozycja.
+
+**Plan naprawczy** (Faza 3 albo 7):
+- W sekcji Financial dashboard pokazujemy DWA numery: "Solax-reported" (z monthly/daily aggregates) i "PGE-actual" (z `historical_yearly_consumption` × G11 brutto)
+- Lifetime PV produkcji bierzemy z `plant_realtime_readings.total_yield` (jest precyzyjna)
+- Ewentualnie w Fazie 7 dodamy backfill ręczny z faktur PGE jako tabelę `monthly_grid_actuals` (dane od PGE per miesiąc, override Solaxa dla tego pola)
+
+### Sanity check po backfill
+
+Top 5 miesięcy produkcji:
+- 2025-05: **1321 kWh** (najlepszy miesiąc — wczesna wiosna i długie dni)
+- 2025-08: 778 kWh
+- 2025-06: 765 kWh
+- 2026-04: 703 kWh (in-progress, kwiecień jeszcze nie skończony)
+- 2025-07: 672 kWh
+
+Sezonowość zgodna z oczekiwaniami: maj-czerwiec szczyt, grudzień-styczeń dno.
+
+Lifetime PV z 16 miesięcy backfill: 7154 kWh. Lifetime z `plant_realtime_readings.total_yield`: 17717 kWh. Diff ~10500 kWh przypada na luty 2023 → marzec 2025 (pre-backfill, Solax niedostępny via API).
+
+---
+
+## Co jest gotowe do startu Fazy 3
+
+- Realne dane historyczne w `monthly_aggregates` (16 miesięcy) i `daily_aggregates` (395 dni)
+- Pipeline na żywo dorzuca nowe wpisy co 5 min
+- Tariff PGE G11 + RCEm history zapisane, kalkulacje finansowe działają (z caveatem o Solax import undercount)
+- `historical_yearly_consumption` 2015-2025 dla widoku "życie przed PV"
+- Vercel + Next.js stoją gotowe do dorzucenia stron dashboardu
+
+## Co jest gotowe do startu Fazy 2 (historyczne, archiwum)
 
 ## Co jest gotowe do startu Fazy 1 (historyczne, archiwum)
 
