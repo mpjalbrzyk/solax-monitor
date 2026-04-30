@@ -37,7 +37,8 @@ export function buildRoiScenarios(args: {
   solaxAnnualRate: number; // tempo z ostatnich 365 dni
   // Real tempo inputs (PGE-derived)
   pgeCumulativeSavings: number; // z calculatePgeActualSavings
-  // (annualRate liczymy tu z cumulative / yearsSinceInstall)
+  // Optional: explicit last-12-months PGE rate (preferred over 3-yr avg)
+  pgeLast12mRate?: number;
 }): { solax: RoiScenario; real: RoiScenario } {
   const {
     installationDate,
@@ -45,6 +46,7 @@ export function buildRoiScenarios(args: {
     solaxCumulativeNet,
     solaxAnnualRate,
     pgeCumulativeSavings,
+    pgeLast12mRate,
   } = args;
 
   const yearsSinceInstall = Math.max(
@@ -52,7 +54,12 @@ export function buildRoiScenarios(args: {
     0.1,
   );
 
-  const realAnnualRate = pgeCumulativeSavings / yearsSinceInstall;
+  // Prefer last-12-months rate (apples-to-apples with Solax tempo) when
+  // provided; fallback to 3-year avg when caller hasn't computed it.
+  const realAnnualRate =
+    pgeLast12mRate != null && pgeLast12mRate > 0
+      ? pgeLast12mRate
+      : pgeCumulativeSavings / yearsSinceInstall;
 
   return {
     solax: scenarioOf({
@@ -72,6 +79,71 @@ export function buildRoiScenarios(args: {
       installationCostPln,
     }),
   };
+}
+
+// === Long-term forecast (Tesla style) ===
+//
+// Pokazuje co się stanie za 5/10/20/25 lat przy realnym tempie i przy 3
+// scenariuszach wzrostu cen energii (które historycznie rosły w Polsce
+// ~8-15%/rok). Plus uwzględnia degradację paneli ~0.5%/rok.
+//
+// Punktem 0 jest TODAY (już za nami CAPEX). Pokazujemy ile kumulatywnie
+// zarobimy przez następne lata, nie wracając do ujemnego CAPEX.
+
+export type LongTermForecast = {
+  yearLabel: string;
+  yearsAhead: number;
+  noPriceGrowth: number; // PLN cumulative since today, 0% energy inflation
+  moderate: number; // 5% energy inflation
+  high: number; // 10% energy inflation
+};
+
+export function buildLongTermForecast(args: {
+  baseAnnualRatePln: number; // tempo bazowe (PGE last-12m)
+  yearsToProject?: number; // default 25
+  panelDegradationPctPerYear?: number; // default 0.5
+}): LongTermForecast[] {
+  const {
+    baseAnnualRatePln,
+    yearsToProject = 25,
+    panelDegradationPctPerYear = 0.5,
+  } = args;
+
+  const points: LongTermForecast[] = [
+    {
+      yearLabel: "Dziś",
+      yearsAhead: 0,
+      noPriceGrowth: 0,
+      moderate: 0,
+      high: 0,
+    },
+  ];
+
+  const currentYear = new Date().getFullYear();
+  let cumNo = 0;
+  let cumMod = 0;
+  let cumHigh = 0;
+
+  for (let i = 1; i <= yearsToProject; i++) {
+    const degradation = Math.pow(1 - panelDegradationPctPerYear / 100, i);
+    const yearlyNo = baseAnnualRatePln * degradation;
+    const yearlyMod = baseAnnualRatePln * degradation * Math.pow(1.05, i);
+    const yearlyHigh = baseAnnualRatePln * degradation * Math.pow(1.1, i);
+
+    cumNo += yearlyNo;
+    cumMod += yearlyMod;
+    cumHigh += yearlyHigh;
+
+    points.push({
+      yearLabel: String(currentYear + i),
+      yearsAhead: i,
+      noPriceGrowth: Math.round(cumNo),
+      moderate: Math.round(cumMod),
+      high: Math.round(cumHigh),
+    });
+  }
+
+  return points;
 }
 
 // Build year-by-year cumulative curve for the break-even chart.

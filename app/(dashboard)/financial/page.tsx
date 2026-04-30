@@ -6,10 +6,13 @@ import { InfoHint } from "@/components/dashboard/info-hint";
 import { GLOSSARY } from "@/lib/copy/glossary";
 import { BreakEvenChart } from "@/components/charts/break-even-chart";
 import { AvoidedExportDonut } from "@/components/charts/avoided-export-donut";
+import { LongTermForecastChart } from "@/components/charts/long-term-forecast-chart";
 import {
   buildBreakEvenCurve,
+  buildLongTermForecast,
   buildRoiScenarios,
 } from "@/lib/derive/forecasts";
+import { calculatePgeActualSavings, getEffectivePricePerKwhBrutto, getMonthlyFixedFromComponents } from "@/lib/tariff";
 import { CheckCircle2, Wallet, Sun, ArrowUpFromLine, Zap, Receipt, Clock } from "lucide-react";
 import {
   getActiveInverter,
@@ -28,7 +31,6 @@ import {
   formatNumber,
   formatDateLong,
 } from "@/lib/format";
-import { calculatePgeActualSavings } from "@/lib/tariff";
 
 export const metadata = { title: "Finanse" };
 export const dynamic = "force-dynamic";
@@ -111,12 +113,37 @@ export default async function FinancialPage() {
     0,
   );
 
+  // Last-12-months realne tempo from PGE invoices (apples-to-apples with
+  // Solax's last-365-day window). Without this, realne tempo gets dragged
+  // down by 2023 RCEm prices that no longer represent today's economics.
+  const sortedInvoices = [...pgeInvoices].sort((a, b) =>
+    b.month_date.localeCompare(a.month_date),
+  );
+  const last12 = sortedInvoices.slice(0, 12);
+  let pgeLast12mRate = 0;
+  if (last12.length === 12 && components.length > 0) {
+    const last12Result = calculatePgeActualSavings({
+      invoices: last12,
+      components,
+      avgPrePvMonthlyKwh: avgPrePvKwhYearly / 12,
+    });
+    pgeLast12mRate = last12Result.totalSavings;
+  }
+
   const scenarios = buildRoiScenarios({
     installationDate: installDate ?? new Date("2023-02-17"),
     installationCostPln: breakEvenTarget,
     solaxCumulativeNet: solaxNet,
     solaxAnnualRate,
     pgeCumulativeSavings: pgeActualSavings,
+    pgeLast12mRate,
+  });
+
+  // Long-term forecast (Tesla style) — 25 years ahead with 3 price scenarios
+  const longTermForecast = buildLongTermForecast({
+    baseAnnualRatePln: scenarios.real.annualRatePln,
+    yearsToProject: 25,
+    panelDegradationPctPerYear: 0.5,
   });
 
   // Best-estimate (used for hero) — primary is real, fallback to solax
@@ -415,6 +442,66 @@ export default async function FinancialPage() {
             Dlaczego oba? Solax pomaga zrozumieć potencjał instalacji, realny
             pokazuje faktyczne pieniądze. Zwykle prawda jest gdzieś pomiędzy,
             bliżej Realnego.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* === Long-term forecast (Tesla style) — what if to 2050? === */}
+      <Card className="glass mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">
+            Prognoza długoterminowa do 2050
+          </CardTitle>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+            Co by było gdyby instalacja pracowała 25 lat dalej? Trzy
+            scenariusze: <strong className="text-foreground">bez wzrostu cen</strong> (linijka),
+            ceny rosną o <strong className="text-foreground">5%/rok</strong> (typowo 2010-2020 w Polsce)
+            albo <strong className="text-foreground">10%/rok</strong> (jak ostatnio 2022-2024).
+            Uwzględnia spadek wydajności paneli ~0,5%/rok (degradacja).
+          </p>
+        </CardHeader>
+        <CardContent>
+          <LongTermForecastChart data={longTermForecast} />
+          <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
+            {[2030, 2040, 2050].map((year) => {
+              const point = longTermForecast.find(
+                (p) => p.yearLabel === String(year),
+              );
+              if (!point) return null;
+              return (
+                <div
+                  key={year}
+                  className="px-3 py-2 rounded-lg bg-white/40"
+                >
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
+                    Do {year}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 tabular-nums">
+                    <span className="text-muted-foreground">+0%/rok</span>
+                    <strong>{formatPln(point.noPriceGrowth)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 tabular-nums">
+                    <span className="text-muted-foreground">+5%/rok</span>
+                    <strong className="text-[var(--grid-export)]">
+                      {formatPln(point.moderate)}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 tabular-nums">
+                    <span className="text-muted-foreground">+10%/rok</span>
+                    <strong className="text-[var(--savings-foreground)]">
+                      {formatPln(point.high)}
+                    </strong>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3 leading-snug">
+            Prognoza zaczyna od bieżącego tempa{" "}
+            <strong>{formatPln(scenarios.real.annualRatePln)}/rok</strong> (z
+            ostatnich 12 mies. faktur PGE) i pomnaża rok-rok przez założony
+            wzrost cen. To NIE jest gwarancja — ceny energii mogą iść w
+            dowolnym kierunku, ale daje skalę „dlaczego warto było zrobić".
           </p>
         </CardContent>
       </Card>
