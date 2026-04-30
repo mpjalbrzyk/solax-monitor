@@ -26,11 +26,12 @@
 1. **`docs/context/00-context.md`** — kim jest user, co posiada (instalacja PV), jakie identyfikatory, status integracji
 2. **`docs/context/01-strategia.md`** — pełna strategia, mapa 10 problemów, architektura, plan fazowy 0-8, koszty
 3. **`docs/context/03-decisions.md`** — wszystkie decyzje techniczne i biznesowe z uzasadnieniem
-4. **`docs/context/04-api-spec.md`** — specyfikacja Solax Developer Portal API z realnymi payloadami i schematem Supabase (9 tabel)
+4. **`docs/context/04-api-spec.md`** — specyfikacja Solax Developer Portal API z realnymi payloadami i schematem Supabase (10 tabel)
 5. **`docs/context/05-implementation-plan.md`** — Twój dedykowany przewodnik. Struktura repo, fazy implementacji 0-8 step-by-step, lista "10 rzeczy żeby NIE zepsuć"
 6. **`docs/context/06-tariff.md`** — konfiguracja taryfy PGE G11 z realnymi cenami z faktury, RCEm history, algorytm kalkulacji finansowej
 7. **`docs/context/07-installation-history.md`** — historia powstania instalacji, koszty, dotacja, ROI break-even
 8. **`docs/context/02-case-study.md`** — perspektywa biznesowa, dialogi z chatbotem (przydatne dla UX)
+9. **`docs/context/08-phase-status.md`** — **aktualny stan każdej fazy, problemy z runtime'u i jak je rozwiązano**. Czytaj na końcu — pokazuje gdzie jesteśmy względem planu (Faza 0 done, Faza 1 next).
 
 **Po przeczytaniu wszystkich tych plików masz pełny kontekst.** NIE pytaj Michała o rzeczy które są w tych plikach — sięgnij do nich.
 
