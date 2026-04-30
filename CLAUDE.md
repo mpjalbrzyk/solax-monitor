@@ -38,21 +38,26 @@
 
 ## Pliki źródłowe (reference, nie do edycji)
 
-W `docs/source-documents/`:
+**Wszystkie poniższe foldery są gitignored.** Pliki istnieją lokalnie na maszynie Michała, NIE są w repo na GitHubie. Claude Code uruchomiony lokalnie ma do nich dostęp przez Read.
+
+W `docs/source-documents/` (gitignored, dane wrażliwe):
 - `Rachunki_Legionów.xlsx` — analiza rachunków 2015-2023 od brata Michała
 - `Proj_WM7KSSe.pdf` — koncepcja systemu PV od SunWise z 2021
-- `faktura-PRO-FORMA_*.pdf` — faktura proforma 28k PLN
-- `pko_trans_details_*.pdf` — 3 potwierdzenia przelewów (28k+6k+6k = 40k PLN)
+- `faktura-PRO-FORMA_*.pdf` — faktura proforma
+- `pko_trans_details_*.pdf` — 3 potwierdzenia przelewów
 
-W `docs/pge-invoices/`:
+W `docs/pge-invoices/` (gitignored, dane wrażliwe):
 - `Druki-2026-energia-PGE.pdf` — komunikat informacyjny PGE z cennikiem URE 2026
 - `energetyka-2026.pdf` — faktura PGE z marca 2026 (źródło danych w `06-tariff.md`)
 
-W `docs/solax-pdfs/` (TBD, gitignored, idą do Supabase Storage przy Fazie 5):
+W `docs/solax-pdfs/` (gitignored, idą do Supabase Storage przy Fazie 5):
 - X3-Hybrid-G4 User Manual
 - X3-Hybrid-G4 Datasheet
-- X3-Hybrid-G4 Error Code List
+- X3-Hybrid-G4 Installation Manual
 - Battery Manual (model TBD)
+
+W `docs/private/` (gitignored, kluczowe liczby finansowe):
+- `financials.md` — koszt instalacji netto, dotacja, breakdown przelewów, numery kont bankowych. Czytaj zanim implementujesz sekcję Financial dashboardu albo kalkulację ROI.
 
 ---
 

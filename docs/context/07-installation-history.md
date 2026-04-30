@@ -60,35 +60,25 @@ W okresie między listopadem 2022 (data faktury proformy 40/2022) a lutym 2023 (
 
 ## 3. Przelewy
 
-Wszystkie z konta wspólnego Krzysztofa i Izabeli (PKO BP, nr `22 1020 1097 0000 7602 0019 9703`) na konto SunWise Energy (mBank, nr `68 1140 2004 0000 3002 8011 9910`).
+Trzy przelewy z konta wspólnego Krzysztofa i Izabeli (PKO BP) na konto SunWise Energy (mBank) między listopadem 2022 a lutym 2023, z tytułów "FAKTURA PROFORMA ZALICZKA NR.40/2022" oraz "FAKTURA PROFORMA ZALICZKA NR KOŃCOWA".
 
-| Data | Kwota | Tytuł |
-|------|-------|-------|
-| 2022-11-28 | 28 000,00 PLN | FAKTURA PROFORMA ZALICZKA NR.40/2022 |
-| 2023-01-31 | 6 000,00 PLN | FAKTURA PROFORMA ZALICZKA NR.40/2022 |
-| 2023-02-22 | 6 000,00 PLN | FAKTURA PROFORMA ZALICZKA NR KOŃCOWA |
-| **SUMA brutto** | **40 000,00 PLN** | **do SunWise Energy** |
+**Konkretne kwoty, daty, numery kont bankowych i breakdown w `docs/private/financials.md` (gitignored).**
 
-Faktura PRO-FORMA z 24.11.2022 nr 40/2022 jest na 28 000 PLN brutto za pierwszą zaliczkę (w pliku `faktura-PRO-FORMA_40_Jabrzykowski_Krzysztof_Izabela.pdf`).
+Faktura PRO-FORMA 40/2022 z 24.11.2022 dotyczy pierwszej zaliczki — szczegóły w plikach `docs/source-documents/` (lokalne, gitignored).
 
 **Brakująca dokumentacja:** faktura końcowa VAT (nie proforma) z 2023 lutego/marca, gdzie powinna być rozpisana finalna konfiguracja systemu Solax + bateria. Do dociągnięcia jeśli rodzice mają w archiwum.
 
 ---
 
-## 4. Dotacja Mój Prąd — POTWIERDZONA 16 000 PLN
+## 4. Dotacja Mój Prąd — POTWIERDZONA
 
-**Otrzymana dotacja: 16 000 PLN** (zwrot na konto rodziców po pół roku od instalacji, czyli ~sierpień 2023).
+Otrzymano dotację z programu Mój Prąd 4.0 (zwrot na konto rodziców po pół roku od instalacji, czyli ~sierpień 2023). Pokryła znaczącą część kosztu instalacji — falownik hybrydowy, bateria, ewentualnie dodatkowe składowe (HEMS albo bonus).
 
-**Prawdopodobny breakdown** (na podstawie kwot z Mój Prąd 4.0 obowiązujących w 2022):
-- Falownik hybrydowy: 5 000 PLN
-- Bateria magazynująca: 5 000 PLN  
-- Dodatkowe składowe (pewnie HEMS albo dodatkowy bonus): 6 000 PLN
+**Konkretna kwota dotacji i breakdown w `docs/private/financials.md` (gitignored).**
 
 **Dokładny breakdown:** TBD jeśli rodzice mają decyzję NFOŚiGW w archiwum (warto poszukać, ale niekrytyczne).
 
-**REALNY KOSZT NETTO INSTALACJI: 24 000 PLN** (40 000 brutto - 16 000 dotacji).
-
-To jest kluczowa liczba dla kalkulacji ROI break-even w sekcji finansowej dashboardu. Wszystkie kalkulacje typu "ile lat do zwrotu" bazują na tej wartości.
+Realny koszt netto instalacji (po odjęciu dotacji) jest kluczową liczbą dla kalkulacji ROI break-even w sekcji finansowej dashboardu. Wszystkie kalkulacje typu "ile lat do zwrotu" bazują na tej wartości — wartość trzymana w `docs/private/financials.md`.
 
 ---
 
@@ -116,7 +106,7 @@ To jest kluczowa liczba dla kalkulacji ROI break-even w sekcji finansowej dashbo
 ## 6. Założenia ROI (do dashboardu sekcja "Financial")
 
 **Punkty referencji:**
-- Koszt instalacji netto (po dotacji): **24 000 PLN**
+- Koszt instalacji netto (po dotacji): wartość w `docs/private/financials.md` (gitignored)
 - Data instalacji: 23 lutego 2023
 - Estymowana produkcja roczna z koncepcji SunWise: 7 218 kWh
 - Faktyczna produkcja po 3 latach: średnio ~5 900-6 800 kWh/rok (z lifetime 18,3 MWh w 38 miesięcy)
@@ -127,7 +117,7 @@ To jest kluczowa liczba dla kalkulacji ROI break-even w sekcji finansowej dashbo
 - Zarobki z eksportu (RCEm): drobne, ~200-500 PLN/rok
 - Łącznie: **~7 500-8 000 PLN/rok** korzyści finansowych
 
-**Estymowany break-even:** 24 000 / 7 800 ≈ **3,1 roku** od instalacji = ~maj 2026, czyli **już teraz**!
+**Estymowany break-even:** ~3,1 roku od instalacji = ~maj 2026, czyli **już teraz**! Konkretne liczby w `docs/private/financials.md`.
 
 To jest świetna karta marketingowa dla case study. Realny zwrot z inwestycji w 3 lata zamiast 7 lat estymowanych pierwotnie. Powody:
 - Wzrost cen energii znacznie szybszy niż w estymacie (+79% w 5 lat zamiast +12% rocznie liniowo)
@@ -143,7 +133,7 @@ To jest świetna karta marketingowa dla case study. Realny zwrot z inwestycji w 
 **Co poszło dobrze:**
 - Decyzja o przejściu na hybrydowy z baterią okazała się słuszna (po net-billingu autokonsumpcja > eksport)
 - Solax X3-Hybrid-G4 ma dobre API i wsparcie społeczności
-- Mój Prąd 4.0 zwrócił 40% kosztu inwestycji
+- Mój Prąd 4.0 zwrócił znaczącą część kosztu inwestycji (szczegóły w `docs/private/financials.md`)
 - Net-billing zadziałał — w 2025 zarobki z eksportu 484 PLN, plus oszczędności z autokonsumpcji
 - Break-even w 3 lata zamiast 7 lat z estymaty
 

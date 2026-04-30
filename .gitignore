@@ -134,3 +134,19 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# macOS
+.DS_Store
+
+# Vercel
+.vercel/
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Project-specific: sensitive documents (keep local, never commit)
+docs/source-documents/
+docs/pge-invoices/
+docs/solax-pdfs/
+docs/private/
