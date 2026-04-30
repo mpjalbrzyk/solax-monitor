@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 30 kwietnia 2026, w trakcie Fazy 3 (krok 1/7 zrobiony).
+**Ostatnia aktualizacja:** 30 kwietnia 2026 wieczorem — Faza 3 funkcjonalnie zamknięta, dashboard na production.
 
 ---
 
@@ -13,7 +13,7 @@
 | 0 | Discovery i setup | ✅ DONE (30.04.2026) | ~1 dzień |
 | 1 | Pipeline danych | ✅ DONE (30.04.2026) | ~1 dzień |
 | 2 | Backfill historyczny | ✅ DONE (30.04.2026) | ~30 min |
-| 3 | Dashboard webowy | 🟢 FUNCTIONAL (krok A-D done) | 2-3 dni plan |
+| 3 | Dashboard webowy | ✅ DONE (30.04.2026 wieczorem) | ~1 dzień |
 | 4 | Chatbot operacyjny | ⏳ pending | 1 dzień |
 | 5 | Chatbot techniczny (RAG) | ⏳ pending | 1 dzień |
 | 7 | Multi-tenant polish | ⏳ pending | 1 dzień |
@@ -324,10 +324,66 @@ Plan z 7 kroków zredukowany do 4 commitów po decyzji Michała 30.04.2026: "zbu
 Dashboard pełny, używalny, dane realne z Supabase. Auto-refresh co 5 min na każdej stronie. Mobile-first (bottom tab bar). Battery scenario A bezpieczny — wszystkie sekcje bateryjne mają fallback "Brak". 100% PL UI.
 
 **Co odłożone do Faz 4-7:**
-- Login magic link (Faza 7 multi-tenant)
+- Login magic link (Faza 7 multi-tenant) — zamiast tego MVP allowlist (krok E)
 - AI live commentary (Faza 4 — rules-based zostaje jako fallback)
 - Tooltipy "Co to znaczy?" dla terminów (autokonsumpcja, RCEm, net-billing) — łatwe dorzucenie po feedbacku
 - Pixel-perfect design polish — kolory/animacje/dark mode
+
+### Krok E — auth allowlist (commit `3d8764e` + `2bb1c3a`)
+
+Decyzja Michała 30.04.2026 wieczorem: zamiast magic linka przez Resend, zrobić prostszy mechanizm — input email, jeśli na liście to wpuszczamy. Bezpieczeństwo niższe niż magic link (ktoś znający email rodziny mógłby wejść), ale URL niepubliczny i tak, plus mamy 3 ludzi rodzinnie.
+
+- `lib/auth/{config,session,middleware}.ts`: ALLOWED_EMAILS env (comma-separated), fallback do trzech maili rodziny w kodzie. Cookie HMAC-signed, TTL 30 dni, AUTH_SECRET env z fallbackiem dla MVP
+- `app/(auth)/login/`: page + LoginForm (`useActionState`) + `loginAction` + `logoutAction` Server Actions
+- `components/dashboard/logout-button.tsx`: dwie formy ('sidebar' full row, 'icon' mobile header)
+- `proxy.ts` wymienione: zamiast Supabase Auth, sprawdza nasz cookie. Public paths: `/login`, `/logout`. Wszystko inne redirect do `/login?redirectTo=...`
+- `lib/supabase/middleware.ts` przeniesione do `lib/auth/middleware.ts` (właściwsza nazwa)
+- Allowlist fallback: `mpjalbrzyk@gmail.com` (Michał), `krzysztof.jalbrzykowski@gmail.com` (tata, to samo konto co Solax Cloud), `mpjecommerce@gmail.com` (passive role test). Override przez `ALLOWED_EMAILS` env w Vercel jeśli kiedyś dorzuci się brata albo klientów
+- `.env.example` zaktualizowany z `ALLOWED_EMAILS` + `AUTH_SECRET`
+
+---
+
+## Decyzja workflowa — koniec preview, lecimy bezpośrednio do main (30.04.2026)
+
+Wcześniej: każdy commit Fazy 3 szedł do brancha `claude/xenodochial-noether-fec08f`, Vercel budował preview deploy, do produkcji szedł tylko po merge PR. Standard dla apek komercyjnych z teamem i QA.
+
+**Po analizie kontekstu:** 3 osoby (Michał + tata + brat docelowo), single installation, MVP rodzinne, brak code review, Vercel Hobby = darmowy. Preview workflow w tym kontekście to **przepalanie** — każdy push wymagał dodatkowego "merge PR" bez żadnej korzyści. Decyzja Michała wprost: "nie chcę żadnych preview na tej głównej apce, zrób żeby działało".
+
+**Wykonane (commit `2bb1c3a`):** fast-forward push z `claude/xenodochial-noether-fec08f` → `main`. Vercel rebuild production na `solax-monitor.vercel.app`. Branch `claude/xenodochial-noether-fec08f` deprecated, można usunąć.
+
+**Od teraz:** każdy push idzie bezpośrednio do `main` = production deploy. Zero PR, zero brancha feature, zero merge. Bug fix robisz na główce, pchasz, Vercel buduje.
+
+**To NIE wymaga Vercel Pro.** Hobby plan ma full Production deploys, bez limitów. Pro odróżnia teamy >1 person, premium analytics, custom builds — niczego z tego MVP nie potrzebuje.
+
+### Token Vercel — debugging próby ustawienia env vars CLI'em
+
+Michał wygenerował token API Vercel (`vck_...`) z opcji "Restricted" (jak się okazało po fakcie). Próba ustawienia env vars przez REST + CLI:
+- `/v2/user` zwracał `username: mpjalbrzyk, limited: true` ✓
+- `/v9/projects` zwracał `[]` (mimo że projekt istnieje)
+- `/v6/deployments` zwracał `[]`
+- `/v2/teams` zwracał 403 forbidden
+- `vercel whoami` zwracał "not authorized"
+
+Wniosek: token jest typu Restricted/Service Account — REST API potwierdza tożsamość, ale nie pozwala czytać projektów ani modyfikować envów. **Token Restricted ≠ token Full Account.** Dla zewnętrznej automatyzacji potrzeba "Full Account" scope.
+
+**Aktualnie:** Michał dodaje 3 env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) ręcznie w Vercel UI (Settings → Environment Variables). Po dodaniu → Redeploy → dane wskakują. Wartości kopiowane z lokalnego `.env.local`.
+
+**Lekcja na przyszłość:** kolejne API tokeny Vercel — generuj z **Full Account scope**, expiration 7 dni, używaj jednorazowo, rewokuj po. Restricted tokens są dla deploy hooks, nie dla automatyzacji envów.
+
+---
+
+## Stan końcowy Fazy 3
+
+- Dashboard webowy na `solax-monitor.vercel.app` z auth allowlist
+- 5 sekcji (Przegląd / Dziś / Miesiąc / Rok / Finanse) z realnymi danymi z Supabase
+- Live commentary, energy flow, KPI bento, alarms widget, daily/monthly/yearly charts, financial break-even + forecast
+- 100% PL UI, mobile-first, glassmorphism + bento, paleta domenowa (PV pomarańcz / savings zielony / grid-import czerwień / grid-export niebieski)
+- Auto-refresh co 5 min, freshness indicator z relative time
+- Battery scenario A bezpieczny — wszystkie sekcje bateryjne mają fallback
+- Token TTL 30 dni dla Solaxa, refresh co 25 dni przez Edge Function
+- Pipeline poll co 5 min, daily aggregates 01:00 UTC
+
+**Następna faza:** 4 (chatbot operacyjny). Wymaga rozstrzygnięcia O-003 (status fizycznej baterii) — bez tego chatbot odpowie na "ile mam w baterii" gdy jej nie ma. Pytanie do Krzysztofa otwarte.
 
 ## Co jest gotowe do startu Fazy 2 (historyczne, archiwum)
 
