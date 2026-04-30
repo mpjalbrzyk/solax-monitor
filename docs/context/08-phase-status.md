@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 30 kwietnia 2026, koniec Fazy 2.
+**Ostatnia aktualizacja:** 30 kwietnia 2026, w trakcie Fazy 3 (krok 1/7 zrobiony).
 
 ---
 
@@ -13,7 +13,7 @@
 | 0 | Discovery i setup | ✅ DONE (30.04.2026) | ~1 dzień |
 | 1 | Pipeline danych | ✅ DONE (30.04.2026) | ~1 dzień |
 | 2 | Backfill historyczny | ✅ DONE (30.04.2026) | ~30 min |
-| 3 | Dashboard webowy | 🟡 NEXT | 2-3 dni plan |
+| 3 | Dashboard webowy | 🟡 IN PROGRESS (krok 1/7) | 2-3 dni plan |
 | 4 | Chatbot operacyjny | ⏳ pending | 1 dzień |
 | 5 | Chatbot techniczny (RAG) | ⏳ pending | 1 dzień |
 | 7 | Multi-tenant polish | ⏳ pending | 1 dzień |
@@ -204,13 +204,51 @@ Lifetime PV z 16 miesięcy backfill: 7154 kWh. Lifetime z `plant_realtime_readin
 
 ---
 
-## Co jest gotowe do startu Fazy 3
+---
 
-- Realne dane historyczne w `monthly_aggregates` (16 miesięcy) i `daily_aggregates` (395 dni)
-- Pipeline na żywo dorzuca nowe wpisy co 5 min
-- Tariff PGE G11 + RCEm history zapisane, kalkulacje finansowe działają (z caveatem o Solax import undercount)
-- `historical_yearly_consumption` 2015-2025 dla widoku "życie przed PV"
-- Vercel + Next.js stoją gotowe do dorzucenia stron dashboardu
+## Faza 3 — w toku (plan i postęp)
+
+Plan inkrementalny uzgodniony 30.04.2026: 7 commitów × ~½ dnia każdy.
+
+| Krok | Commit | Treść | Status |
+|------|--------|-------|--------|
+| 1 | TBD | Fundament: lib/supabase clients, proxy.ts (auth gate za feature flagiem), shadcn (card/tabs/skeleton/input/label/dropdown/sonner), migracja installation_cost, layout PL, glassmorphism background, page.tsx jako status board | ✅ DONE |
+| 2 | TBD | Auth magic link: /login z Server Action signInWithOtp, /auth/callback handler, AUTH_GATE_ENABLED=true | ⏳ |
+| 3 | TBD | Overview MVP: hero energy flow (SVG), 4 KPI tiles bento, refresh co 5 min | ⏳ |
+| 4 | TBD | Daily view: line chart Recharts (yield + load + import + export), date picker, tabela podsumowań | ⏳ |
+| 5 | TBD | Monthly + Yearly: bar chart dni miesiąca, grouped bar YoY | ⏳ |
+| 6 | TBD | Financial: cumulative savings vs 24 000 PLN break-even, Solax-reported vs PGE-actual, breakdown autokonsumpcja vs eksport | ⏳ |
+| 7 | TBD | Polish: mobile bottom nav, loading skeletons, RLS sanity test | ⏳ |
+
+### Decyzje designowe Fazy 3 (uzgodnione 30.04.2026)
+
+- **Domena dla magic linka:** Vercel preview URL na MVP, `solar.mpjalbrzyk.pl` może później
+- **Financial dashboard:** dwa numery równolegle — **Solax-reported** (z `daily_aggregates`, niedoszacowany przez brakującą baterię w Cloud) i **PGE-actual** (z `historical_yearly_consumption × tariff`)
+- **Koszt instalacji:** 40 000 PLN brutto − 16 000 PLN dotacja Mój Prąd 4.0 = **24 000 PLN netto**. Seed w `user_inverters.installation_cost_pln` migracją `20260430100250_add_installation_cost.sql`
+- **Battery capacity:** zostawione jako NULL, do uzupełnienia po zdjęciu naklejki z baterii (Michał obiecał przy następnej akcji)
+- **UX/UI dla wszystkich userów (active+passive):** bento, technologiczne, przejrzyste, delikatny glassmorphism w stylu Apple — białe + szklane + subtelne kolory (zielony oszczędności, pomarańczowy PV). Funkcjonalność > design pixel-perfect na MVP
+- **Mobile-first:** brat i tata otworzą z telefonu, sidebar nav zostaje bottom tab bar na mobile
+- **Numery zawsze w PLN obok kWh:** kWh to abstrakcja, PLN to konkret dla rodziny
+
+### Krok 1 — co weszło (commit 11)
+
+- Migracja `20260430100250_add_installation_cost.sql`: kolumny `installation_cost_pln` (24 000) + `installation_subsidy_pln` (16 000) na `user_inverters`. Zaplikowane na remote, weryfikacja przez REST API zwróciła oczekiwane wartości
+- `lib/supabase/{client,server,middleware}.ts` — boilerplate `@supabase/ssr` (browser, server-with-cookies, session-refresh helper). `cookies()` jest awaited (Next 15+ requirement)
+- `proxy.ts` w roocie (Next 16 zastąpił nazwę `middleware.ts` deprecation warningiem). Funkcja eksportowana jako `proxy`. Auth gate za stałą `AUTH_GATE_ENABLED = false` żeby Krok 1 nie krzyczał 404 na `/login`. Krok 2 flipuje na true
+- 7 nowych shadcn komponentów: card, tabs, skeleton, input, label, dropdown-menu, sonner
+- `app/globals.css`:
+  - poprawiony self-reference `--font-sans: var(--font-sans)` → `var(--font-geist-sans)`
+  - paleta domenowa: `--pv` (oklch ~60° pomarańcz), `--savings` (~155° zieleń), `--grid-import` (~25° czerwień), `--grid-export` (~230° niebieski), w obu motywach
+  - body z gradient blob backgroundem (3 radialne gradienty PV/savings/grid-export, fixed)
+  - utility classes `.glass` i `.glass-strong` z backdrop-blur, white/55, subtle border + shadow
+- `app/layout.tsx`: `lang="pl"`, metadata template `%s · Solax Monitor`, Geist Sans/Mono z `latin-ext` subset, Toaster Sonner
+- `app/page.tsx`: zastąpiony Next.js placeholder bento status boardem — 4 KPI tiles (lifetime production, pipeline LIVE, backfill 395 dni, break-even ~maj 2026) + roadmap card z 8 fazami. Czyste demo glass + bento
+
+### TS / build cleanup
+
+- `tsconfig.json`: dodane `supabase/functions` i `scripts` do `exclude` żeby TS nie próbował tłumaczyć Deno imports (`jsr:@supabase/...`) ani Node mjs scriptów
+- Worktree w `.claude/worktrees/xenodochial-noether-fec08f/` ma własny `package-lock.json` co powoduje warning Turbopack o multiple lockfiles — nieblokujące, można naprawić przez `turbopack.root` w `next.config.ts` jeśli przeszkadza
+- Build clean: `npm run build` → 0 warning, 0 error, statyczna prerender `/`
 
 ## Co jest gotowe do startu Fazy 2 (historyczne, archiwum)
 
