@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 30 kwietnia 2026 późny wieczór — Faza 3 + enhancement A (PGE authoritative data) zamknięte. O-003 closed scenariusz A potwierdzony.
+**Ostatnia aktualizacja:** 1 maja 2026 — Faza 3 zamknięta z pełnym polish UX/UI w kierunku Tesla/Apple Fitness. Dashboard premium-quality ready dla rodziny.
 
 ---
 
@@ -13,7 +13,7 @@
 | 0 | Discovery i setup | ✅ DONE (30.04.2026) | ~1 dzień |
 | 1 | Pipeline danych | ✅ DONE (30.04.2026) | ~1 dzień |
 | 2 | Backfill historyczny | ✅ DONE (30.04.2026) | ~30 min |
-| 3 | Dashboard webowy | ✅ DONE (30.04.2026 wieczorem) | ~1 dzień |
+| 3 | Dashboard webowy | ✅ DONE + visual polish (1.05.2026) | ~1.5 dnia |
 | 4 | Chatbot operacyjny | ⏳ pending | 1 dzień |
 | 5 | Chatbot techniczny (RAG) | ⏳ pending | 1 dzień |
 | 7 | Multi-tenant polish | ⏳ pending | 1 dzień |
@@ -558,6 +558,188 @@ Workflow: Michał skanuje, wrzuca, mówi mi w czacie nazwę pliku → ja używam
 - Tooltipy w Energy Flow nodes (są w KPI tiles, dodanie do energy flow nodes mało priorytetowe — chyba że Michał poprosi)
 - "Bilans dnia" karta na /daily ma własny opis ale nie ma hint — można dorzucić jeśli okaże się mylące
 - Pixel-perfect design polish — Faza 7
+
+---
+
+## Faza 3 — visual polish v2: Tesla style + grywalizacja + długoterminowa prognoza (1.05.2026)
+
+Obszerna sesja UX/UI bazująca na researchu Michała (`docs/source-documents/Badanie aplikacji fotowoltaicznych dla użytkowników.docx`, 188 paragrafów benchmarków Tesla / Enphase / Tibber / Huawei / SolarAssistant). Cel: dashboard "ready dla rodziny", premium-quality, w stylu Apple Fitness + Tesla Energy.
+
+### Top wnioski z researchu zaadresowane do projektu
+
+| Insight | Status |
+|---------|--------|
+| Tesla animowany energy flow z poruszającymi się kropkami | ✓ wdrożone (5 ścieżek SVG, 3 kropki na każdą, stagger 0.83s, 2.5s loop) |
+| Wykres progu rentowności od ujemnego CAPEX (Złoty Graal) | ✓ wdrożone — krzywa zaczyna od -24 000 zł, dwie krzywe (real + Solax), reference lines (CAPEX/Brutto/Próg zwrotu) |
+| Avoided Costs vs Export Revenues — kategoryczne rozróżnienie | ✓ wdrożone jako donut na `/financial` |
+| Dwa scenariusze ROI (Solax/realny) z wyjaśnieniem | ✓ wdrożone na `/overview` (Investment Hero z dual progress ring) i `/financial` (break-even chart) |
+| MPPT split (Enphase wisdom) — wczesna detekcja zacienienia | ✓ wdrożone — tile pod energy flow, detekcja "Możliwe zacienienie" gdy ratio < 0.3 |
+| Grywalizacja: streaks + odznaki + roczny pasek + loss-aversion | ✓ wdrożone — produkcja streak, finansowy plus streak, cel roczny 7000 kWh, 5+ odznak typu pierwszy >30 kWh / 100 dni produkcji / 5 MWh łącznie |
+| System status badge zero-click | ✓ wdrożone — green/yellow/red z natural-language detail |
+| "Jak to działa?" plain-Polish onboarding | ✓ wdrożone — collapsible akordeon z 6 sekcjami (jednostki, bilans, eksport, alarmy, cel) |
+| Inline descriptions na KPI tiles (nie ukryte w tooltipie) | ✓ wdrożone — `KpiTile` ma optional `description` prop, widoczny na surface |
+| Spolszczenie ("lifetime" → "łączna") | ✓ wdrożone |
+| Długoterminowa prognoza 2030/2040/2050 | ✓ wdrożone — `LongTermForecastChart` z 3 scenariuszami wzrostu cen + degradacja paneli 0.5%/rok |
+
+**Świadomie odrzucone** (insighty z researchu nie pasujące do MVP):
+- Sąsiedzkie benchmarki (jeden user, niemożliwe)
+- Heatmap RCE godzinowy (brak danych godzinowych z PSE — mamy tylko miesięczne)
+- AI rekomendacje przez Claude API (chatbot odłożony, overpriced wg Michała)
+- Treemap zużycia per urządzenie (Solax nie ma device-level monitoring)
+- Tibber Earnings/Self-Consumption mode toggle (brak baterii)
+
+### Sekwencja commitów tej sesji (chronologicznie)
+
+| # | Commit | Treść |
+|---|--------|-------|
+| 1 | `ffef8bd` | Tesla-style energy flow z animowanymi kropkami SVG + MPPT split tile + system status badge (green/yellow/red) |
+| 2 | `d957878` | Bento Overview v2: Investment Hero z dual progress ring (Real + Solax tempo) + period cards (Dziś/Tydzień/Miesiąc) + buildRoiScenarios() |
+| 3 | `fcf0077` | Grywalizacja — streak counter, yearly goal bar, achievements, "Jak to działa?" collapsible. Calculations w `lib/derive/gamification.ts` |
+| 4 | `1afb45b` | Financial: Tesla break-even chart od -24k CAPEX z dual tempo + Avoided/Export donut + sekcja wyjaśniająca dwa scenariusze tempa |
+| 5 | `cf3925b` | Migracja: invoice 03/2509/00137305/2 oznaczona jako paid (Michał potwierdził) |
+| 6 | `c53b45a` | Overview top contextual summary card + per-card mini-comments + większy Investment Hero z opisami widocznymi (nie w tooltipie) + emoji → lucide ikony + milestone timeline + rozszerzone HowItWorks (6 sekcji) |
+| 7 | `57ac1e7` | Financial: visible inline descriptions pod KPI tiles (RCEm/koszt poboru/PGE-actual wytłumaczone na surface) + spolszczenie "lifetime" → "Łączna produkcja" |
+| 8 | `8a9eafb` | Fix tempo realne (last-12mo PGE zamiast 3-year avg) + długoterminowa prognoza 2030/2040/2050 w `/financial` z 3 scenariuszami wzrostu cen |
+| 9 | `c522c6b` | Daily/Monthly/Yearly polish: quick pills "Wczoraj/Tydzień temu" w `/daily` + grupowany MonthPicker w `/monthly` z kluczowymi wskaźnikami i YoY comparison + per-year filter w `/yearly` z drill-down tabelą |
+
+### Stan końcowy aplikacji (1.05.2026)
+
+**Strony:**
+1. `/login` — auth allowlist (3 maile rodziny), cookie 30 dni, HMAC-signed
+2. `/overview` — bento z 5 strefami:
+   - Strefa 0: Top contextual summary (2-3 zdania interpretacji dziś/tydzień/miesiąc) + status badge
+   - Strefa 1: Energy flow Tesla-style z animowanymi kropkami + live commentary + MPPT split
+   - Strefa 2: Period cards (Dziś/Tydzień/Miesiąc) z mini-komentarzami + Investment Hero (dual ring) z 2 scenariuszami ETA
+   - Strefa 3: Quick stats (4 mini-tile)
+   - Strefa 4: Grywalizacja — yearly goal + 2 streaks + milestone timeline z lucide icons
+   - Strefa 5: HowItWorks (rozbudowany 6-sekcyjny akordeon) + Alarmy
+3. `/daily?date=YYYY-MM-DD` — wykres 24h area chart, 4 KPI, bilans dnia, contextual comment, quick pills (Wczoraj/Tydzień/Miesiąc temu)
+4. `/monthly?month=YYYY-MM` — bar chart dni miesiąca, 4 KPI, top 3 dni, grupowany MonthPicker (per-rok), Kluczowe wskaźniki sekcja, YoY comparison, fallback do `historical_pge_invoices` dla starych miesięcy
+5. `/yearly?year=YYYY` — grouped bar chart YoY, 4 KPI, tabela roczna z PGE invoices, per-year filter pills, single-year drill-down z tabelą per-miesiąc
+6. `/financial` — Investment Hero, dwa scenariusze tempa (Solax/Realny) z opisami, 4 KPI breakdown, break-even chart Tesla style od -24k, Avoided/Export donut, długoterminowa prognoza 2030/2040/2050, sekcja faktur PGE (10 dokumentów), tabela 12 miesięcy
+
+**Schema bazy (Supabase Postgres):**
+- 13 tabel z RLS
+- 10 oryginalnych (z initial schema): `user_inverters`, `plant_realtime_readings`, `device_realtime_readings`, `monthly_aggregates`, `daily_aggregates`, `inverter_alarms`, `tariffs`, `api_credentials`, `documentation_chunks`, `historical_yearly_consumption`
+- 3 dodatkowe (Faza 3 enhancement A): `historical_pge_invoices` (37 mies.), `pge_invoices` (10 dokumentów), `tariff_components` (29 wpisów)
+- Wszystkie kolumny user-specific zabezpieczone RLS
+- Service-role client dla server components (bypass RLS dla MVP single-user)
+
+**Edge Functions (deployed):**
+1. `refresh-token` — cron co 25 dni, OAuth refresh Solax
+2. `poll-realtime` — cron co 5 min, plant + device data + bug fix totalActivePower
+3. `poll-alarms` — cron co 15 min
+4. `daily-aggregates` — cron 01:00 UTC, dzienne agregaty + kalkulacje finansowe
+5. `roll-monthly-aggregates` — cron 1. dzień 02:00 UTC, daily → monthly rollup
+6. Stuby: `weekly-digest`, `monthly-digest`, `update-rcem`, `send-alert` — implementacja w Fazie 6
+
+**Komponenty UI:**
+- 13 shadcn (button, card, tabs, skeleton, input, label, dropdown-menu, sonner, avatar, badge, progress, separator, tooltip)
+- 17 dashboard-specific (header, sidebar, mobile-nav, refresh-indicator, kpi-tile, energy-flow, mppt-split, system-status-badge, info-hint, alarms-widget, investment-hero, progress-ring, gamification-row, how-it-works, month-picker, date-nav, logout-button, nav-config)
+- 5 charts (daily-line, monthly-bar, yearly-grouped, forecast, break-even, avoided-export-donut, long-term-forecast)
+
+**Lib:**
+- `lib/format` — PL formatery (PLN, kWh, kW, %, daty, relative time)
+- `lib/data/{client,queries,types}` — Supabase service-role + 11 high-level queries + types
+- `lib/tariff` — calculations + getEffectivePricePerKwhBrutto + calculatePgeActualSavings
+- `lib/derive/{index,forecasts,gamification,overview-commentary}` — pure functions (energy flow, ROI scenarios, streaks, achievements, contextual narration)
+- `lib/auth/{config,session,middleware}` — allowlist auth z HMAC cookie
+- `lib/copy/glossary.ts` — 19 polskich definicji terminów
+- `lib/date` — Europe/Warsaw helpers
+
+### Co dashboard pokazuje na dziś (1.05.2026)
+
+| Metryka | Wartość |
+|---------|---------|
+| **Bilans inwestycji** (Realny tempo, najbliższe prawdy) | ~9 100 zł zwrócone z 24 000 zł netto = **38%** |
+| **Tempo realne** (last-12mo PGE) | ~3 058 zł/rok |
+| **Tempo Solax** (last-365 days inverter) | ~6 508 zł/rok (zaniżony import) |
+| **Próg zwrotu** (real tempo, liniowo) | ~maj 2031 |
+| **Próg zwrotu** (Solax tempo, liniowo) | ~grudzień 2028 |
+| **Lifetime produkcja PV** (Solax licznik) | 17,7 MWh (od 17.02.2023) |
+| **Lifetime eksport** (z faktur PGE) | 10 032 kWh za 3 198 zł depozytu |
+| **Lifetime pobór z sieci** (z faktur PGE) | 12 277 kWh |
+| **Suma zapłat PGE** | ~5 460 zł za 35 mies. |
+| **Cel roczny 2026** | 7 000 kWh (1100 kWh/kWp/rok dla woj. mazowieckiego × 7,7 kWp) |
+| **Streak dni produkcyjnych** | 30+ z rzędu (sezon w pełni) |
+
+### Krytyka 20-letniego seniora — co dorobić w przyszłości
+
+**P0 — krytyczne dla SaaS (poza rodziną):**
+- Magic link auth zamiast allowlist 3 maili
+- User-scoped Supabase client + RLS verification (porzucenie service-role w UI)
+- Rate-limiting na proxy
+- CSP headers
+- Sentry monitoring Edge Functions
+
+**P1 — kluczowe dla rodzinnego użytkowania:**
+- Faza 6: alerty mailowe (Resend) — bez tego rodzina nie wie że pipeline padł
+- Health-check cronów (czy `roll-monthly-aggregates` faktycznie się wywołał ostatniego 1.)
+- Retry/backfill mechanizm dla chybionych polli
+- Graceful degradation gdy Supabase pada
+
+**P2 — wartość dodana (nice-to-have):**
+- Pogoda OpenWeatherMap w live commentary ("Jutro pochmurno, naładuj rozsądnie")
+- Eksport CSV / Print-friendly PDF dla księgowego
+- Web Push notifications
+- Custom date range picker
+- Skróty klawiszowe (g o, g f, etc)
+
+**P3 — odłożone do Fazy 4-7:**
+- Chatbot operacyjny (Claude API) — Faza 4
+- Chatbot techniczny RAG na manualach Solax — Faza 5
+- Multi-tenant onboarding flow — Faza 7
+- Mobile app (PWA) — Faza 7
+- ESG raporty — gdy wejdzie B2B klient
+
+### Otwarta lista zadań (rozliczeniowe / niedokończone)
+
+- [ ] Faktura PGE okres 09.2025-02.2026 (PDF) — Michał ma dane w `06-tariff.md` ale PDF nie zwalidowany. Po dotarciu wpisać `invoice_no` w 6 wpisach `historical_pge_invoices` które mają obecnie `data_source = 'tariff_md_extracted'`
+- [ ] Wyciągi bankowe 2024-10/12 dla reconciliacji 2 podejrzanych wpłat (sec 12 audytu)
+- [ ] Rotacja sekretów po sesji: GitHub PAT (już zrewokowany), VERCEL_TOKEN, ewentualnie Supabase keys i Solax Client Secret
+- [ ] Decyzja Michała + Krzysztof: zakup baterii + EV jako pakiet (notatka biznesowa, niewpływa na kod)
+
+---
+
+## Podsumowanie projektu (1.05.2026)
+
+**Sesje od 30.04.2026 do 1.05.2026 (~36 godzin pracy)** zaowocowały:
+
+- ✅ **30 commitów** do `main` (od initial commit)
+- ✅ **5 stron dashboardu** w pełni funkcjonalnych z realnymi danymi
+- ✅ **6 migracji bazy** + 6 stubów Edge Functions + 5 zaimplementowanych
+- ✅ **Pełen pipeline danych live** — Solax → Edge Functions → Supabase → Next.js → Vercel
+- ✅ **Multi-tenant ready** (RLS na każdej tabeli) mimo że MVP single-user
+- ✅ **Apple Fitness + Tesla Energy quality UX** zgodnie z benchmarkami z researchu
+- ✅ **37 miesięcy zwalidowanych danych finansowych** z faktur PGE
+- ✅ **Dual ROI scenarios** (Solax tempo / Realny tempo) z wyjaśnieniami
+- ✅ **Grywalizacja** (streaks, milestones, yearly goal) — research wskazuje +60-80% retencji
+- ✅ **Glassmorphism + bento + animacje** premium-look
+- ✅ **100% UI po polsku** (etykiety, formatowanie, narrator, tooltipy)
+- ✅ **Auth allowlist** (3 maile rodziny, HMAC-signed cookies, 30 dni TTL)
+- ✅ **Live updates** (auto-refresh co 5 min, freshness badge)
+- ✅ **Mobile-first** (bottom tab bar, responsive bento)
+- ✅ **Pełna dokumentacja** w `docs/context/` (10 plików × średnio 25 KB każdy)
+- ✅ **9 plików kontekstu** wszystkie aktualne i sięgalne
+- ✅ **O-001, O-003** zamknięte (Chatbot prywatny + bateria potwierdzona nieobecna)
+
+**Co działa na production `solax-monitor.vercel.app` (Vercel Hobby, 0 zł/mc):**
+- Pełen dashboard z autorytatywnymi danymi PGE
+- Auth allowlist
+- Pipeline polling co 5 min
+- Backfill 16 mies. Solax + 37 mies. PGE invoices
+- Wszystkie 5 stron + finalna polish UX/UI
+
+**Run rate aplikacji:** ~0 zł/mc (wszystkie usługi w darmowych tierach: Vercel Hobby, Supabase free, GitHub free). Anthropic API zarezerwowane dla Fazy 4 chatbota — dochodzi przy ~10-30 zł/mc gdy ją włączymy.
+
+**Następne kroki rekomendowane** (kolejność wg pilności):
+1. **Faza 6 — alerty mailowe** (½ dnia, Resend free tier 3000 maili/mc)
+2. **Health-checks + Sentry** (½ dnia, kosztuje 0 zł)
+3. **Pogoda OpenWeatherMap** w commentary (3h, 0 zł)
+4. **Eksport CSV/PDF** + print mode (2h)
+5. Zostaw aplikację, oglądaj przez miesiąc, decyduj czy iść w Fazę 4 (chatbot) czy 7 (multi-tenant polish)
+
+---
 
 ## Co jest gotowe do startu Fazy 2 (historyczne, archiwum)
 
