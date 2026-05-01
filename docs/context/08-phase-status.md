@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 1 maja 2026 — Faza 3 zamknięta z pełnym polish UX/UI w kierunku Tesla/Apple Fitness. Dashboard premium-quality ready dla rodziny.
+**Ostatnia aktualizacja:** 1 maja 2026 wieczorem — Faza 3 zamknięta + UX audit response (14/24 action items zaadresowane, reszta świadomie odłożona).
 
 ---
 
@@ -698,6 +698,69 @@ Obszerna sesja UX/UI bazująca na researchu Michała (`docs/source-documents/Bad
 - [ ] Wyciągi bankowe 2024-10/12 dla reconciliacji 2 podejrzanych wpłat (sec 12 audytu)
 - [ ] Rotacja sekretów po sesji: GitHub PAT (już zrewokowany), VERCEL_TOKEN, ewentualnie Supabase keys i Solax Client Secret
 - [ ] Decyzja Michała + Krzysztof: zakup baterii + EV jako pakiet (notatka biznesowa, niewpływa na kod)
+
+---
+
+## UX Audit response (1.05.2026 wieczorem)
+
+Po sesji visual polish v2 Michał przeprowadził audit UX/UI dashboardu i wrzucił 24 punktów action items w `docs/context/09-ux-audit-action-items.md` (5 sprintów: trust killers, hierarchy, clarity, microcopy, investigations). Zaadresowane w 2 commitach.
+
+### Sprint 1 — Trust killers (commit `6c343e3`)
+
+Wszystkie 5 punktów P0 zaadresowane:
+
+| # | Bug | Naprawa |
+|---|-----|---------|
+| **A.1** | Rekord dzienny 678 kWh fizycznie niemożliwy | Migracja `20260501113904_fix_bad_daily_aggregate_2025_05_06.sql`: NULL na zły wiersz + CHECK constraint `yield_kwh BETWEEN 0 AND 100`. Plus sanity check w `calculateMilestones`. Realny rekord: 39,4 kWh |
+| **A.2** | Streaki 71=71 dni produkcyjnych vs finansowych | Diagnoza: Solax zaniża `cost_pln` (1,70 zł/rok), więc każdy dzień produkcyjny iluzorycznie "na plus". Druga metryka redefiniowana na "Dni z mocną produkcją (≥5 kWh)" |
+| **A.3** | "Cel roczny" status sprzeczny | Logika 3-poziomowa `ahead/on_pace/behind` z PROJEKCJI końca roku, nie YTD vs cel. Suppressed gdy `daysIntoYear < 90`. Cel dynamiczny z `pv_capacity_kwp × 1000`. Sidebar 7,7 kWp wszędzie |
+| **A.4** | "Typowo zimą" w maju | Narrator sezonowy w `lib/derive/overview-commentary.ts`: zima/wiosna/lato/jesień + edge case dzień 1-2 |
+| **A.5** | YOY -97% mylący | Logika użyta `lastSharedMonth` zamiast `todayMonth`. Disable badge gdy `<2` mies. shared. KpiTile description wprost wyjaśnia metodę |
+
+### Sprint 2-4 (commit `9c46c3c`)
+
+Hierarchy + clarity + bilans breakdown:
+
+| # | Co | Naprawa |
+|---|-----|---------|
+| **C.1** | Duplikat 4 quick-stats na Przeglądzie | Usunięte (energy flow + 4 kafelki pokazywały te same liczby) |
+| **C.3** | Bilans dnia ukryty na dole `/daily` | Hero `glass-strong` z `text-5xl` jako pierwszy element po DateNav |
+| **C.6** | Bieżący rok szary na wykresie YoY | `yearColorMap`: current year = savings green, historyczne gradient pv→gridExport→muted. Plus suffix "(bieżący)" w legendzie |
+| **C.7** | Empty state Maja 2026 nieinformatywny | `EmptyMonthState` z 3 stanami: dzień 1-2 / mid-current / pre-Solax. Każdy z innym CTA |
+| **A.6** | "Eksport 2 zł" (Solax noise) | KPI używa `SUM(historical_pge_invoices.deposit_value_pln)` (~3 198 PLN z 37 faktur). Donut też. Komentarz wyjaśnia czemu Solax nie liczy |
+| **A.7** | Bilans Inwestycji niezrozumiały breakdown | Nowa karta "Z czego się składa Twój bilans" z 3 liniami (autokonsumpcja + depozyt − koszt = bilans) z kropkami kolorów + opisem źródła każdego strumienia |
+
+### Świadomie odłożone do następnej tury (8/24)
+
+| # | Co | Czemu odłożone |
+|---|-----|----------------|
+| C.2 | Reorganizacja sekcji Przeglądu wg czasokresu | Większy refactor layoutu — lepiej zrobić po feedbacku z aktualnej wersji |
+| C.4 | Kapsułki Roku reagują na filterYear | Wymaga rewrite logiki YoY/best-month/current-year w `/yearly` żeby `filterYear` przepiętrzała się przez wszystkie obliczenia |
+| C.5 | Toggle metryki nad wykresem Roku (Produkcja/Eksport/Pobór) | Wymaga client component z URL state — nie krytyczne |
+| C.8 | Próg rentowności wykres wyżej w Finansach | Drobna zmiana kolejności — odłożona |
+| D.1 | Pełne tooltipy z formułą dla każdego KPI | ~30 tooltipów × wzory matematyczne — duża praca |
+| D.2 | Narrative banner na Finansach | Jest w Overview/Daily/Monthly/Yearly, dorobimy w Finansach |
+| D.3 | Unified `<EmptyState>` component | Mamy 3-stan na /monthly z C.7, do refactor na shared |
+| D.4-D.5 | "Ostatnia aktualizacja" copy + 3-poziomowa MPPT asymetria | Drobne, do agregacji |
+
+### Świadomie skipped (2/24)
+
+| # | Co | Czemu skipped |
+|---|-----|----------------|
+| C.9 | Faktura "Po terminie" alert banner | **Sprawdziłem**: jedyna `paid_late` to `03/2505/00099527` z 2 dni opóźnienia, **już zapłacona** (paid 2025-06-06, due 2025-06-04). Banner "musisz zapłacić" mylący. Tag w tabeli + tooltip wystarczają |
+| C.10 | Bilans donut — primary + sekundarne | Investment Hero ma już dual progress ring (outer Realny dominuje, inner Solax subtelny). Plus card A.7 daje explicit breakdown. Audit krytykuje wcześniejszą wersję bez breakdown'u |
+
+### Verifications wykonane (B-list partial)
+
+Sprawdzone przez REST API zanim wprowadzono zmiany A.*:
+- ✅ A.1: bad row 2025-05-06 = 678 kWh (drugi rekord 39,4 kWh)
+- ✅ A.2: streak production = 71, balance = 71 (dane potwierdzają)
+- ✅ A.6: total earnings_pln = 1,70 zł rocznie (bug Solax)
+- ✅ A.7: 3 streamy w breakdown (savings + deposit − cost) → math math sprawdzona
+- ✅ Faktura paid_late = 1 (już zapłacona)
+- ✅ user_inverters.pv_capacity_kwp = 7.7 (audit miał starą "8 kWp")
+
+Pozostałe B-list (B.1 lifetime PV, B.2 suma faktur, B.5 autokonsumpcja vs G11, B.8 bilans dnia 35,74 zł formuła) — odłożone do następnej tury jako focused verify pass.
 
 ---
 
