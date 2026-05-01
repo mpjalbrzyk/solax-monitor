@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 1 maja 2026 wieczorem — Faza 3 zamknięta + UX audit response (14/24 action items zaadresowane, reszta świadomie odłożona).
+**Ostatnia aktualizacja:** 1 maja 2026 noc — Faza 3 zamknięta + UX audit response (14/24 done) + visual identity sprint (Tydzień + Raporty + narrator + design system overhaul).
 
 ---
 
@@ -13,13 +13,22 @@
 | 0 | Discovery i setup | ✅ DONE (30.04.2026) | ~1 dzień |
 | 1 | Pipeline danych | ✅ DONE (30.04.2026) | ~1 dzień |
 | 2 | Backfill historyczny | ✅ DONE (30.04.2026) | ~30 min |
-| 3 | Dashboard webowy | ✅ DONE + visual polish (1.05.2026) | ~1.5 dnia |
-| 4 | Chatbot operacyjny | ⏳ pending | 1 dzień |
-| 5 | Chatbot techniczny (RAG) | ⏳ pending | 1 dzień |
+| 3 | Dashboard webowy | ✅ DONE + 3 rundy polish (1.05.2026) | ~2 dni |
+| 4 | Chatbot operacyjny | ⏸️ świadomie odłożony | 1 dzień |
+| 5 | Chatbot techniczny (RAG) | ⏸️ świadomie odłożony | 1 dzień |
+| 6 | Email digest + alerty | ⏳ pending (raporty UI gotowe — czeka Resend) | pół dnia |
 | 7 | Multi-tenant polish | ⏳ pending | 1 dzień |
-| 6 | Email digest + alerty | ⏳ pending | pół dnia |
+| 8 | Case study content (równolegle) | ⏳ pending | 2 dni |
 
-**Kolejność realizacji** (uzgodnione 30.04.2026): 0 → 1 → 2 → 3 → 4 → 5 → 7 → 6. Email digest na sam koniec, bo wymaga wszystkich pozostałych komponentów.
+**Kolejność realizacji** (uzgodnione 1.05.2026): 0 → 1 → 2 → 3 → ✂️ skip 4-5 (chatbot zastąpiony narratorem deterministycznym) → 6 → 7 → 8.
+
+**Stan na 1.05.2026 noc:** **4/8 faz operacyjnych zamknięte** (0, 1, 2, 3 — pełna ścieżka data → dashboard). Pozostałe **3 fazy operacyjne** (6, 7) oraz **2 fazy odłożone** (4, 5 — chatbot, opcjonalne) plus content (8). Realnie: aplikacja jest **production-ready dla rodziny już teraz**, dalsze fazy to wartość dodana.
+
+**Faza 3 — czemu trzy rundy polish:**
+1. Krok A-D (30.04.2026) — pierwszy build z Apple Fitness/Tesla quality
+2. Visual polish v2 (1.05.2026 rano) — gamification, długoterminowa prognoza, Tesla flow
+3. UX audit response (1.05.2026 wieczorem) — 14/24 trust killers + hierarchy
+4. Visual identity v3 (1.05.2026 noc) — Tydzień + Raporty + narrator + warm color system
 
 ---
 
@@ -761,6 +770,67 @@ Sprawdzone przez REST API zanim wprowadzono zmiany A.*:
 - ✅ user_inverters.pv_capacity_kwp = 7.7 (audit miał starą "8 kWp")
 
 Pozostałe B-list (B.1 lifetime PV, B.2 suma faktur, B.5 autokonsumpcja vs G11, B.8 bilans dnia 35,74 zł formuła) — odłożone do następnej tury jako focused verify pass.
+
+---
+
+## Sesja 1.05.2026 noc — Tydzień + Raporty + design system v2
+
+Kolejna runda po UX audit response. Obejmowała 3 commity:
+
+### Commit `75aa01c` — pierwszy podejście: tech grid + niebieski brand + nowe zakładki
+
+Eksperymentalny visual identity z panel-grid background (jak panele PV) + powolny niebieski sweep + electric blue brand color (#1E90FF). Dodałem zakładki **Tydzień** (`/weekly`) i **Raporty** (`/reports`) z narratorem.
+
+| Element | Co zrobione |
+|---------|-------------|
+| Background | TechBackground component: srebrny panel-grid 64×32px + diagonal sweep co 14s, GPU-only animation |
+| Sidebar | Active state z gradient niebieski + lewy 2px brand-strip + glow shadow + filled icon |
+| Mobile nav | Scroll + niebieski active dot |
+| Token `--brand` | Electric blue oklch(0.62 0.18 230) jako primary accent |
+
+**Faza 3.5 — narrator (`lib/derive/period-narrator.ts`):**
+- 4 funkcje: `narrateDay/Week/Month/Year` z headline + body[] + tone (good/neutral/info/bad)
+- Sezon-aware (oczekiwane kWh/dzień per miesiąc dla 7,7 kWp)
+- Wpięte w /daily, /weekly, /monthly, /yearly
+- Komponent `<PeriodNarrative>` w 2 wariantach (default card + compact)
+
+**Tab `/weekly`:**
+- DateNav po tygodniach (poniedziałek-niedziela), 7-dniowy bar chart
+- KPI grid (produkcja, zużycie, pobór, eksport)
+- Day-by-day grid z linkami do `/daily?date=...` — best day highlighted
+
+**Tab `/reports`:**
+- Banner intro + 3 sekcje: 6 tygodni / 12 miesięcy / N lat
+- Każdy raport: kropka tonacji + headline + 2 zdania narracji + 3 KPI inline
+- Button "Wyślij mailem" → otwiera klient pocztowy z gotowym `mailto:` (działa od razu, bez Resend)
+- Button "PDF" → toast "wkrótce" (Faza 6)
+
+### Commit `c911e12` — wycofanie niebieskiego, design system per `10-color-system.md`
+
+Po feedbacku Michała ("siatka jednak mi się nie podoba, wracajmy do gradientu") + dostarczonym design system markdownie. Pełen pivot na ciepłą paletę.
+
+| Faza | Co zrobione |
+|------|-------------|
+| 1. Usunięcie | TechBackground component delete, panel-grid CSS purge, niebieski `--brand` purge |
+| 2. Paleta | Pełna skala `--brand-50..800` (zielony #16A34A primary) + `--solar-50..800` (pomarańcz #D97706 primary) + state tokens (success/warning/error/info) |
+| 3. Tailwind 4 | `@theme inline` aliasy `--color-brand-*`, `--color-solar-*` — klasy `bg-brand-600`, `text-solar-800` itd. |
+| 4. Tła | `--bg-gradient-main` warm 135° (#FFF4E6 → #FAFBE9 → #E8F5E9), `--bg-gradient-sidebar` pomarańczowy 180° |
+| 5. Sidebar | Pomarańczowy gradient bg, active state w `solar-100` linear gradient z `solar-800` text + `solar-600` ikona w pillu z ringiem `solar-300`. Status dot zielony brand-500 z pulse |
+| 6. Narrator | Tone dots: good/neutral=brand-600 (zielony), info=solar-500 (pomarańcz), bad=error-icon (czerwony) |
+| 7. Wykresy | `recharts-base` CHART_COLORS przepisana per design doc 5.4: yearCurrent=#16A34A, yearPrevious=#86EFAC, yearOlder1=#FCD34D, yearOlder2=#94A3B8 |
+| 8. Yearly chart | Bieżący rok zawsze yearCurrent (mocny zielony), historyczne pastelują |
+| 9. Pastylki | 4 warianty CSS (`btn-twin`/`btn-brand`/`btn-accent`/`btn-ghost`) + Button CVA variants `twin`/`brand`/`solar-accent`/`soft-ghost` |
+| 10. Stany | `.pill-success`/`.pill-error`/`.pill-warning`/`.pill-neutral` jako utility classes |
+
+**Why warm wins:** pomarańcz=energia/słońce, zielony=oszczędność/pieniądze. Wbudowana semantyka, samo-uczy. Niebieski tech vibe gryzł się z glassmorphism + nie pasował do family use case.
+
+### Otwarte zadania zgłoszone przez Michała w sesji nocnej (do następnego sprintu)
+
+| # | Zadanie | Powód | Priorytet |
+|---|---------|-------|-----------|
+| 1 | **Investment Hero rozbicie** na 2-3 osobne kafelki | Obecnie "Realne tempo" (last 12mo PGE = ~9000 zł) + "Solax tempo" (~5800 zł) razem → wizualnie zielone > pomarańczowe sugeruje że Realne tempo jest *szybsze*, ale to mylące (Realne tempo z PGE jest po prostu prawdą; Solax tempo niedoszacowuje przez bug API). Trzeba osobne kafelki z explicit "to dwa różne sposoby liczenia, oba wolne, oto dlaczego" | wysoki — psuje zaufanie do hero KPI |
+| 2 | **Overview restructure** — Dziś / Tydzień / Miesiąc jako vertical stack w lewej kolumnie | Obecnie 3-col grid, user chce stronę dzielącą się na dwie kolumny: lewa = stack 3 podsumowań chronologicznie (najmłodsze u góry), prawa = Investment Hero rozbity | średni — usability |
+| 3 | **PDF eksport** raportów na realnie | Obecnie button "PDF" pokazuje toast "wkrótce". Albo `window.print()` z print-friendly CSS (tani MVP), albo `@react-pdf` (pełna kontrola) | niski — mailto już daje workflow |
 
 ---
 
