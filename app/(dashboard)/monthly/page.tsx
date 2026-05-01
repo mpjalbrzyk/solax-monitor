@@ -23,6 +23,8 @@ import {
 import { formatKwh, formatMonthYear, formatPln, formatDateShort } from "@/lib/format";
 import { GLOSSARY } from "@/lib/copy/glossary";
 import { Card as CardK, CardContent as CardContentK } from "@/components/ui/card";
+import { narrateMonth } from "@/lib/derive/period-narrator";
+import { PeriodNarrative } from "@/components/dashboard/period-narrative";
 
 export const metadata = { title: "Miesiąc" };
 export const dynamic = "force-dynamic";
@@ -122,7 +124,7 @@ export default async function MonthlyPage({
   const nextMonth = shiftMonthString(month, +1);
   const canGoForward = nextMonth <= currentMonth;
 
-  // Contextual rules-based commentary
+  // Contextual rules-based commentary (legacy, used for PGE-only fallback months).
   const commentary = buildMonthlyCommentary({
     month,
     totalYield,
@@ -132,6 +134,60 @@ export default async function MonthlyPage({
     hasSolaxDaily,
     hasPgeInvoice,
   });
+
+  // Liczby do narratora (Solax-driven days)
+  const totalCost = dailyRange.reduce((s, d) => s + Number(d.cost_pln ?? 0), 0);
+  const totalRevenue = dailyRange.reduce(
+    (s, d) =>
+      s + Number(d.savings_pln ?? 0) + Number(d.earnings_pln ?? 0),
+    0,
+  );
+  const bestDayRow = dailyRange.reduce<{ kwh: number; date: string | null }>(
+    (acc, d) => {
+      const k = Number(d.yield_kwh ?? 0);
+      if (k > acc.kwh) return { kwh: k, date: d.date };
+      return acc;
+    },
+    { kwh: 0, date: null },
+  );
+  const selfUseAvg = (() => {
+    const valid = dailyRange.filter((d) => d.self_use_rate_pct != null);
+    if (valid.length === 0) return null;
+    return (
+      valid.reduce((s, d) => s + Number(d.self_use_rate_pct ?? 0), 0) /
+      valid.length
+    );
+  })();
+
+  // Same month last year for YoY narration (Solax-only — old months may be PGE-only)
+  const sameMonthLastYearKwh = (() => {
+    const [y, m] = month.split("-").map(Number);
+    const target = `${y - 1}-${String(m).padStart(2, "0")}`;
+    const inv = allInvoices.find((i) => i.month_date.startsWith(target));
+    if (inv && inv.grid_export_kwh != null) {
+      // For old months only PGE export is available — convert to approx production
+      // Production ≈ export + self-use; we don't have self-use historic. Use grid_export only as lower bound.
+      // Better: skip if no daily data available historically.
+      return null; // conservative — don't lie if we don't have the right metric
+    }
+    return null;
+  })();
+
+  const monthNarration = hasSolaxDaily
+    ? narrateMonth({
+        monthDate: `${month}-01`,
+        todayWarsaw: today,
+        yieldKwh: totalYield,
+        savingsPln: totalRevenue,
+        costPln: totalCost,
+        balancePln: totalSavings,
+        daysWithData,
+        bestDayKwh: bestDayRow.kwh > 0 ? bestDayRow.kwh : null,
+        bestDayDate: bestDayRow.date,
+        selfUsePct: selfUseAvg,
+        sameMonthLastYearKwh,
+      })
+    : null;
 
   return (
     <>
@@ -155,7 +211,9 @@ export default async function MonthlyPage({
         )}
       </div>
 
-      {commentary && (
+      {monthNarration ? (
+        <PeriodNarrative narration={monthNarration} className="mb-4" />
+      ) : commentary ? (
         <Card className="glass mb-4">
           <CardContent className="py-4 px-5 sm:px-6 text-sm leading-relaxed">
             <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium block mb-1">
@@ -164,7 +222,7 @@ export default async function MonthlyPage({
             {commentary}
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {/* === Kluczowe wskaźniki: YoY + best/worst months in current year === */}
       <KeyIndicators

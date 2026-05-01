@@ -94,6 +94,17 @@
   --savings-foreground: oklch(0.27 0.06 155);
   --grid-import: oklch(0.6 0.2 25);
   --grid-export: oklch(0.62 0.13 230);
+
+  /* Electric blue brand accent — active states, highlights, energy theme. */
+  --brand: oklch(0.62 0.18 230);
+  --brand-soft: oklch(0.62 0.18 230 / 0.15);
+  --brand-glow: oklch(0.7 0.18 230 / 0.35);
+  --brand-foreground: oklch(0.32 0.08 230);
+
+  /* Tech background tokens — silver panel grid + cool sweep. */
+  --bg-base: oklch(0.985 0.005 240);
+  --bg-grid: oklch(0.78 0.012 240 / 0.18);
+  --bg-sweep: oklch(0.72 0.16 230 / 0.10);
 }
 
 .dark {
@@ -143,12 +154,7 @@
   }
   body {
     @apply text-foreground;
-    background: oklch(0.985 0.008 95);
-    background-image:
-      radial-gradient(at 8% 12%, oklch(0.92 0.09 60 / 0.55) 0px, transparent 55%),
-      radial-gradient(at 92% 18%, oklch(0.93 0.07 155 / 0.45) 0px, transparent 55%),
-      radial-gradient(at 50% 100%, oklch(0.94 0.05 230 / 0.3) 0px, transparent 60%);
-    background-attachment: fixed;
+    background-color: var(--bg-base);
   }
   html {
     @apply font-sans;
@@ -161,5 +167,48 @@
   }
   .glass-strong {
     @apply rounded-2xl border border-white/60 bg-white/75 backdrop-blur-2xl shadow-[0_1px_2px_rgba(15,15,15,0.05),0_12px_32px_-12px_rgba(15,15,15,0.1)];
+  }
+
+  /* TechBackground layers — used by <TechBackground /> component. */
+  .panel-grid {
+    /* Solar-panel-like silver grid: 2:1 horizontal cells (panel proportion). */
+    background-image:
+      linear-gradient(to right, var(--bg-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--bg-grid) 1px, transparent 1px);
+    background-size: 64px 32px;
+    /* Mask: stronger near top, fades to bottom — keeps content readable. */
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
+  }
+
+  .panel-sweep {
+    /* Soft diagonal "sun on panels" highlight that drifts. */
+    background: linear-gradient(
+      135deg,
+      transparent 30%,
+      var(--bg-sweep) 50%,
+      transparent 70%
+    );
+    background-size: 200% 200%;
+    animation: panel-sweep 14s ease-in-out infinite;
+    will-change: background-position, opacity;
+  }
+
+  @keyframes panel-sweep {
+    0%, 100% {
+      background-position: 0% 100%;
+      opacity: 0.55;
+    }
+    50% {
+      background-position: 100% 0%;
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .panel-sweep {
+      animation: none;
+      opacity: 0.5;
+    }
   }
 }

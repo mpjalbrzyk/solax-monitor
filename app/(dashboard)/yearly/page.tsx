@@ -14,6 +14,8 @@ import {
 import { PL_MONTH_SHORT, todayWarsaw } from "@/lib/date";
 import { formatKwh, formatMonthYear, formatMwh, formatPln } from "@/lib/format";
 import { GLOSSARY } from "@/lib/copy/glossary";
+import { narrateYear } from "@/lib/derive/period-narrator";
+import { PeriodNarrative } from "@/components/dashboard/period-narrative";
 
 export const metadata = { title: "Rok do roku" };
 export const dynamic = "force-dynamic";
@@ -187,7 +189,7 @@ export default async function YearlyPage({
     0,
   );
 
-  // Contextual comment
+  // Contextual comment (legacy fallback for "all years" view).
   const commentary = buildYearlyCommentary({
     todayYear,
     todayMonth,
@@ -196,6 +198,64 @@ export default async function YearlyPage({
     cySamePeriod,
     pySamePeriod,
   });
+
+  // Narrator dla single-year drill (lub bieżącego roku w widoku ogólnym).
+  const narrationYear = filterYear ? Number(filterYear) : todayYear;
+  const narrationTotals = yearTotals.get(narrationYear);
+  const narrationPrev = yearTotals.get(narrationYear - 1);
+
+  // Best month for this year — by export (only metric available across all years)
+  let narrationBestMonth: { kwh: number; date: string | null } = { kwh: 0, date: null };
+  for (let m = 1; m <= 12; m++) {
+    const ym = `${narrationYear}-${String(m).padStart(2, "0")}`;
+    const pv = pvByYearMonth.get(ym);
+    const exp = exportByYearMonth.get(ym) ?? 0;
+    const kwh = pv != null && pv > 0 ? pv : exp;
+    if (kwh > narrationBestMonth.kwh) {
+      narrationBestMonth = { kwh, date: `${ym}-01` };
+    }
+  }
+
+  // Months covered for this year — count months with any data
+  let narrationMonthsCovered = 0;
+  for (let m = 1; m <= 12; m++) {
+    const ym = `${narrationYear}-${String(m).padStart(2, "0")}`;
+    if (pvByYearMonth.has(ym) || exportByYearMonth.has(ym)) {
+      narrationMonthsCovered++;
+    }
+  }
+
+  const narrationYieldKwh =
+    narrationTotals?.pv_source === "solax"
+      ? narrationTotals.pv_kwh
+      : (narrationTotals?.export_kwh ?? 0);
+  const narrationPrevKwh =
+    narrationPrev?.pv_source === "solax"
+      ? narrationPrev.pv_kwh
+      : (narrationPrev?.export_kwh ?? 0);
+  // Annual savings/cost approximation for the narrator. We use deposit as proxy for
+  // export earnings; cost from PGE invoices is the import side. For Solax-only years
+  // we don't have a clean money breakdown so we skip detailed money lines.
+  const narrationDepositPln = narrationTotals?.deposit_pln ?? 0;
+  const narrationImportKwh = narrationTotals?.import_kwh ?? 0;
+
+  const yearNarration = narrationTotals
+    ? narrateYear({
+        year: narrationYear,
+        todayWarsaw: todayWarsaw(),
+        yieldKwh: narrationYieldKwh,
+        savingsPln: narrationDepositPln,
+        costPln: 0, // we don't aggregate import cost at year level here
+        balancePln: narrationDepositPln,
+        monthsCovered: narrationMonthsCovered,
+        bestMonthKwh: narrationBestMonth.kwh > 0 ? narrationBestMonth.kwh : null,
+        bestMonthDate: narrationBestMonth.date,
+        prevYearYieldKwh: narrationPrevKwh > 0 ? narrationPrevKwh : null,
+        pvCapacityKwp: Number(inverter.pv_capacity_kwp ?? 7.7),
+      })
+    : null;
+  // For mixed import+export commentary we still keep imports referenced via summary block below.
+  void narrationImportKwh;
 
   return (
     <>
@@ -239,6 +299,10 @@ export default async function YearlyPage({
           pvByYearMonth={pvByYearMonth}
           yearTotals={yearTotals}
         />
+      )}
+
+      {yearNarration && (
+        <PeriodNarrative narration={yearNarration} className="mb-4" />
       )}
 
       {commentary && !filterYear && (

@@ -20,6 +20,8 @@ import {
 } from "@/lib/date";
 import { formatDateLong, formatKwh, formatPln, formatPower } from "@/lib/format";
 import { GLOSSARY } from "@/lib/copy/glossary";
+import { narrateDay } from "@/lib/derive/period-narrator";
+import { PeriodNarrative } from "@/components/dashboard/period-narrative";
 
 export const metadata = { title: "Dziś" };
 export const dynamic = "force-dynamic";
@@ -140,7 +142,7 @@ export default async function DailyPage({
       {dailyAgg?.savings_pln != null && (
         <Card className="glass-strong mb-4">
           <CardContent className="px-5 sm:px-6 py-5">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
               <div>
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-1">
                   Bilans dnia
@@ -158,15 +160,28 @@ export default async function DailyPage({
                 Oszczędności z autokonsumpcji + przychód z eksportu − koszt poboru
               </div>
             </div>
-            <p className="text-sm leading-relaxed text-foreground/85 border-t border-zinc-200/40 pt-3">
-              {buildDailyComment({
-                dailyAgg,
-                peakProductionW,
-                isToday,
-              })}
-            </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* === Narrator: co się dzieje, prostym językiem === */}
+      {dailyAgg && (
+        <PeriodNarrative
+          className="mb-4"
+          narration={narrateDay({
+            date,
+            todayWarsaw: today,
+            yieldKwh: Number(dailyAgg.yield_kwh ?? 0),
+            savingsPln: Number(dailyAgg.savings_pln ?? 0) + Number(dailyAgg.earnings_pln ?? 0),
+            costPln: Number(dailyAgg.cost_pln ?? 0),
+            balancePln:
+              Number(dailyAgg.savings_pln ?? 0) +
+              Number(dailyAgg.earnings_pln ?? 0) -
+              Number(dailyAgg.cost_pln ?? 0),
+            selfUsePct: dailyAgg.self_use_rate_pct,
+            peakProductionW,
+          })}
+        />
       )}
 
       <Card className="glass mb-4">
@@ -233,52 +248,4 @@ export default async function DailyPage({
 
 function isValidDate(s: string | undefined): s is string {
   return !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
-}
-
-function buildDailyComment(args: {
-  dailyAgg: import("@/lib/data/types").DailyAggregate;
-  peakProductionW: number;
-  isToday: boolean;
-}): string {
-  const { dailyAgg, peakProductionW, isToday } = args;
-  const yieldKwh = Number(dailyAgg.yield_kwh ?? 0);
-  const consumption = Number(dailyAgg.consumption_kwh ?? 0);
-  const exportKwh = Number(dailyAgg.export_kwh ?? 0);
-  const importKwh = Number(dailyAgg.import_kwh ?? 0);
-  const netPln =
-    Number(dailyAgg.savings_pln ?? 0) +
-    Number(dailyAgg.earnings_pln ?? 0) -
-    Number(dailyAgg.cost_pln ?? 0);
-
-  const lines: string[] = [];
-
-  if (yieldKwh < 0.5) {
-    lines.push("Pochmurny dzień — panele prawie nic nie wyprodukowały.");
-  } else if (yieldKwh < 10) {
-    lines.push(`Słaby dzień — produkcja ${formatKwh(yieldKwh)}, daleko od potencjału instalacji.`);
-  } else if (yieldKwh < 25) {
-    lines.push(`Umiarkowana produkcja ${formatKwh(yieldKwh)}.`);
-  } else {
-    lines.push(`Mocny dzień — ${formatKwh(yieldKwh)} produkcji, szczyt ${formatPower(peakProductionW)}.`);
-  }
-
-  if (exportKwh > consumption) {
-    lines.push(`Wyeksportowano do sieci ${formatKwh(exportKwh)} — więcej niż dom zużył (${formatKwh(consumption)}).`);
-  } else if (importKwh > exportKwh && yieldKwh < consumption) {
-    lines.push(`Dom potrzebował więcej niż panele dały — pobór z sieci ${formatKwh(importKwh)}.`);
-  }
-
-  if (Math.abs(netPln) > 1) {
-    if (netPln > 0) {
-      lines.push(`Bilans dnia: +${formatPln(netPln, true)}.`);
-    } else {
-      lines.push(`Bilans dnia: ${formatPln(netPln, true)}.`);
-    }
-  }
-
-  if (isToday) {
-    lines.push("Dane się jeszcze rozliczają — pełny bilans dnia będzie po północy.");
-  }
-
-  return lines.join(" ");
 }
