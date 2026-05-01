@@ -7,7 +7,8 @@ import {
   SystemStatusBadge,
   deriveSystemStatus,
 } from "@/components/dashboard/system-status-badge";
-import { InvestmentHero } from "@/components/dashboard/investment-hero";
+import { InvestmentScenarioCard } from "@/components/dashboard/investment-scenario-card";
+import { InvestmentExplanationCard } from "@/components/dashboard/investment-explanation-card";
 import { AlarmsWidget } from "@/components/dashboard/alarms-widget";
 import {
   getActiveInverter,
@@ -270,13 +271,13 @@ export default async function OverviewPage() {
         </CardContent>
       </Card>
 
-      {/* === STREFA 2 — Bento grid: 3 period cards (left) + Investment Hero (right) === */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
-        {/* Left column 2/3 — period stat cards stacked */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* === STREFA 2 — 50/50 split: lewa = period stack chronologicznie, prawa = investment scenarios === */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+        {/* Lewa kolumna: 3 period cards JEDEN POD DRUGIM (per Michał's restructure 1.05.26) */}
+        <div className="flex flex-col gap-3">
           <PeriodCard
             label="Dziś"
-            icon={<Sun className="size-4 text-[var(--pv)]" />}
+            icon={<Sun className="size-4 text-[var(--solar-600)]" />}
             value={formatKwh(dailyYield)}
             sub="Produkcja"
             mainBalance={todayBalance}
@@ -293,7 +294,7 @@ export default async function OverviewPage() {
           />
           <PeriodCard
             label="Ten tydzień"
-            icon={<Calendar className="size-4 text-[var(--pv)]" />}
+            icon={<Calendar className="size-4 text-[var(--solar-600)]" />}
             value={formatKwh(weekYield)}
             sub={`${weekDays} dni`}
             mainBalance={weekBalance}
@@ -310,7 +311,7 @@ export default async function OverviewPage() {
           />
           <PeriodCard
             label="Ten miesiąc"
-            icon={<Wallet className="size-4 text-[var(--savings)]" />}
+            icon={<Wallet className="size-4 text-[var(--brand-600)]" />}
             value={formatKwh(monthYield)}
             sub={`${monthRange.length} dni`}
             mainBalance={monthBalance}
@@ -328,9 +329,26 @@ export default async function OverviewPage() {
           />
         </div>
 
-        {/* Right column 1/3 — Investment Hero (tall) */}
-        <div className="lg:col-span-1">
-          <InvestmentHero
+        {/* Prawa kolumna: 2 osobne scenario cards + explanation. Każdy ring na swoim
+            kafelku, bez wspólnej hierarchii która myliła "Realne większe = szybsze". */}
+        <div className="flex flex-col gap-3">
+          <InvestmentScenarioCard
+            variant="real"
+            isAuthoritative={true}
+            scenario={scenarios.real}
+            installationCostPln={installCost}
+            label="Realne tempo (PGE)"
+            description="Z faktur PGE i historycznego zużycia. Pokazuje pieniądze które fizycznie nie poszły do PGE."
+          />
+          <InvestmentScenarioCard
+            variant="solax"
+            isAuthoritative={false}
+            scenario={scenarios.solax}
+            installationCostPln={installCost}
+            label="Solax tempo"
+            description="Z bieżących pomiarów inwertera. Optymistyczne — Solax zaniża pobór z sieci."
+          />
+          <InvestmentExplanationCard
             installationCostPln={installCost}
             subsidyPln={subsidy}
             scenarios={scenarios}
