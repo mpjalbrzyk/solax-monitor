@@ -1,4 +1,4 @@
-import { Sun, Wallet, Zap, Calendar } from "lucide-react";
+import { Sun, Wallet, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { EnergyFlowDiagram } from "@/components/dashboard/energy-flow";
@@ -45,8 +45,6 @@ import { todayWarsaw, shiftDateString } from "@/lib/date";
 import {
   formatKwh,
   formatPln,
-  formatPower,
-  formatPercent,
 } from "@/lib/format";
 
 export const metadata = { title: "Przegląd" };
@@ -340,35 +338,7 @@ export default async function OverviewPage() {
         </div>
       </div>
 
-      {/* === STREFA 3 — Now-state row (4 quick KPIs) === */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <QuickStat
-          icon={<Sun className="size-4 text-[var(--pv)]" />}
-          label="Produkcja teraz"
-          value={formatPower(flow.pvW)}
-        />
-        <QuickStat
-          icon={<Zap className="size-4 text-foreground" />}
-          label="Dom zużywa"
-          value={formatPower(flow.loadW)}
-        />
-        <QuickStat
-          icon={<Calendar className="size-4 text-[var(--grid-export)]" />}
-          label={flow.gridW < -50 ? "Pobór z sieci" : flow.gridW > 50 ? "Eksport" : "Sieć"}
-          value={formatPower(Math.abs(flow.gridW))}
-        />
-        <QuickStat
-          icon={<Wallet className="size-4 text-[var(--savings)]" />}
-          label="Bateria"
-          value={
-            flow.hasBattery
-              ? formatPercent(flow.batterySocPct)
-              : "Brak"
-          }
-        />
-      </section>
-
-      {/* === STREFA 4 — Grywalizacja === */}
+      {/* === STREFA 3 — Grywalizacja === */}
       <div className="mb-4">
         <GamificationRow
           productionStreak={productionStreak}
@@ -379,7 +349,7 @@ export default async function OverviewPage() {
         />
       </div>
 
-      {/* === STREFA 5 — Edukacja + alarmy === */}
+      {/* === STREFA 4 — Edukacja + alarmy === */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <HowItWorks />
         <AlarmsWidget alarms={alarms} />
@@ -456,26 +426,3 @@ function PeriodCard({
   );
 }
 
-function QuickStat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Card className="glass">
-      <CardContent className="px-4 py-3 flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
-            {label}
-          </span>
-          {icon}
-        </div>
-        <div className="text-xl font-semibold tabular-nums">{value}</div>
-      </CardContent>
-    </Card>
-  );
-}

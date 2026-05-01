@@ -66,10 +66,22 @@ export default async function FinancialPage() {
   // === SOLAX-REPORTED (z daily_aggregates) ===
   const solaxNet = cumulative.total_net_pln;
   const solaxSavings = cumulative.total_savings_pln;
-  const solaxEarnings = cumulative.total_earnings_pln;
   const solaxCost = cumulative.total_cost_pln;
   const solaxYield = cumulative.total_yield_kwh;
   const daysWithData = cumulative.days_count;
+
+  // === EKSPORT (audit A.6 fix) ===
+  // Solax raportuje eksport zaniżony tak samo jak import — solaxEarnings =
+  // 1.70 zł rocznie wbrew faktycznym ~330 zł rocznie. Lepsze źródło:
+  // historical_pge_invoices.deposit_value_pln × multiplier.
+  const pgeDepositTotal = pgeInvoices.reduce(
+    (s, inv) => s + Number(inv.deposit_value_pln ?? 0),
+    0,
+  );
+  const pgeExportKwhTotal = pgeInvoices.reduce(
+    (s, inv) => s + Number(inv.grid_export_kwh ?? 0),
+    0,
+  );
 
   // === PGE-ACTUAL (z 37 mies. PGE invoices + tariff_components) ===
   // Liczymy per miesiąc: hipotetyczny koszt bez PV (avg pre-PV × cena/kWh dla
@@ -253,6 +265,56 @@ export default async function FinancialPage() {
         </CardContent>
       </Card>
 
+      {/* === A.7: Z czego się składa bilans inwestycji === */}
+      <Card className="glass mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">
+            Z czego się składa Twój bilans
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Bilans inwestycji to suma trzech strumieni pieniędzy minus jeden
+            koszt. Każdy element liczony z innego źródła — dlatego rozkładamy
+            jak na fakturze.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 text-sm">
+            <BreakdownRow
+              sign="+"
+              label="Autokonsumpcja"
+              value={formatPln(solaxSavings)}
+              note="energia ze słońca zużyta od razu w domu × cena G11 brutto"
+              tone="savings"
+            />
+            <BreakdownRow
+              sign="+"
+              label="Depozyt prosumencki (eksport)"
+              value={formatPln(pgeDepositTotal)}
+              note={`${formatKwh(pgeExportKwhTotal, 0)} oddane × RCEm/RCE z 37 faktur PGE`}
+              tone="export"
+            />
+            <BreakdownRow
+              sign="−"
+              label="Koszt poboru z sieci"
+              value={formatPln(solaxCost)}
+              note="zaniżone przez Solax, faktyczne ~330 zł/rok wg PGE"
+              tone="import"
+            />
+            <div className="border-t border-zinc-200/40 pt-2.5 mt-2.5 flex items-center justify-between">
+              <span className="font-semibold">= Bilans (Solax-reported)</span>
+              <span className="text-lg font-semibold tabular-nums">
+                {formatPln(solaxSavings + pgeDepositTotal - solaxCost)}
+              </span>
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground leading-snug">
+            Realny bilans (z faktur PGE) to{" "}
+            <strong>{formatPln(scenarios.real.cumulativeNowPln)}</strong> —
+            uwzględnia hipotetyczne życie bez fotowoltaiki, nie tylko Solax-reported.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* === Two-source comparison — VISIBLE descriptions per Michał === */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
         <Card className="glass">
@@ -316,9 +378,9 @@ export default async function FinancialPage() {
         <KpiTile
           icon={ArrowUpFromLine}
           label="Eksport do sieci"
-          value={formatPln(solaxEarnings)}
-          sub="net-billing PGE"
-          description="Nadwyżka oddana do sieci × Rynkowa Cena Energii (RCEm dla 2023, RCE dla 2024+, ×1,23 od 02.2025). PGE odkłada to jako kredyt w depozycie prosumenckim — odlicza od następnej faktury."
+          value={formatPln(pgeDepositTotal)}
+          sub={`${formatKwh(pgeExportKwhTotal, 0)} oddane do PGE`}
+          description="Suma depozytu prosumenckiego z 37 faktur PGE (RCEm 2023, RCE 2024, ×1,23 od 02.2025). PGE odkłada to jako kredyt — odlicza od kolejnych faktur. Solax zaniża eksport, dlatego bierzemy z faktur."
           tone="export"
         />
         <KpiTile
@@ -395,7 +457,7 @@ export default async function FinancialPage() {
           <CardContent>
             <AvoidedExportDonut
               avoidedPln={solaxSavings}
-              exportPln={solaxEarnings}
+              exportPln={pgeDepositTotal}
               size={160}
             />
           </CardContent>
@@ -646,6 +708,46 @@ export default async function FinancialPage() {
         </p>
       )}
     </>
+  );
+}
+
+function BreakdownRow({
+  sign,
+  label,
+  value,
+  note,
+  tone,
+}: {
+  sign: "+" | "−";
+  label: string;
+  value: string;
+  note: string;
+  tone: "savings" | "export" | "import";
+}) {
+  const dot =
+    tone === "savings"
+      ? "bg-[var(--savings)]"
+      : tone === "export"
+        ? "bg-[var(--grid-export)]"
+        : "bg-[var(--grid-import)]";
+  return (
+    <div className="flex items-start justify-between gap-3 py-1">
+      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+        <span className="text-base font-semibold tabular-nums w-4 shrink-0">
+          {sign}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`size-1.5 rounded-full shrink-0 ${dot}`} />
+            <span className="font-medium">{label}</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-snug ml-3.5">
+            {note}
+          </p>
+        </div>
+      </div>
+      <span className="font-semibold tabular-nums">{value}</span>
+    </div>
   );
 }
 

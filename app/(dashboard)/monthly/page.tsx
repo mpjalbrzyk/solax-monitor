@@ -185,12 +185,12 @@ export default async function MonthlyPage({
           </CardContent>
         </Card>
       ) : (
-        <Card className="glass mb-4">
-          <CardContent className="py-8 px-5 sm:px-6 text-sm text-muted-foreground text-center">
-            Brak danych dziennych Solax dla tego miesiąca — Solax API udostępnia
-            tylko ostatnie ~13 miesięcy. Dane sieciowe poniżej z faktur PGE.
-          </CardContent>
-        </Card>
+        <EmptyMonthState
+          month={month}
+          today={today}
+          currentMonth={currentMonth}
+          hasPgeData={hasPgeInvoice}
+        />
       )}
 
       {/* PGE-source KPI tiles for old months, Solax for fresh */}
@@ -390,6 +390,92 @@ function buildMonthlyCommentary(args: CommentaryArgs): string | null {
   }
 
   return lines.length > 0 ? lines.join(" ") : null;
+}
+
+function EmptyMonthState({
+  month,
+  today,
+  currentMonth,
+  hasPgeData,
+}: {
+  month: string;
+  today: string;
+  currentMonth: string;
+  hasPgeData: boolean;
+}) {
+  const isCurrentMonth = month === currentMonth;
+  const dayOfToday = Number(today.slice(8, 10));
+  const isVeryEarlyInMonth = isCurrentMonth && dayOfToday <= 2;
+
+  // Audit C.7 — three distinct empty states with appropriate CTAs
+  if (isVeryEarlyInMonth) {
+    return (
+      <Card className="glass mb-4">
+        <CardContent className="py-6 px-5 sm:px-6">
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="font-medium">
+              ⏳ Miesiąc dopiero się zaczął
+            </div>
+            <p className="text-muted-foreground">
+              Pierwsze pełne dane miesięczne pojawią się dziś po zachodzie słońca,
+              gdy Edge Function rozliczy daily aggregate. Sprawdź zakładkę{" "}
+              <a href={`/daily?date=${today}`} className="underline hover:no-underline font-medium">
+                Dziś
+              </a>{" "}
+              żeby zobaczyć produkcję na żywo, albo{" "}
+              <a
+                href={`/monthly?month=${shiftMonthString(currentMonth, -1)}`}
+                className="underline hover:no-underline font-medium"
+              >
+                zeszły miesiąc
+              </a>{" "}
+              dla pełnego rozliczenia.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isCurrentMonth) {
+    return (
+      <Card className="glass mb-4">
+        <CardContent className="py-6 px-5 sm:px-6 text-sm">
+          <div className="font-medium mb-1">📅 Miesiąc w toku</div>
+          <p className="text-muted-foreground">
+            Daily aggregates się gromadzą — wykres rośnie z każdym dniem. Pełen
+            obraz miesiąca będzie po jego końcu.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Historical month outside Solax 13-month window
+  return (
+    <Card className="glass mb-4">
+      <CardContent className="py-6 px-5 sm:px-6 text-sm">
+        <div className="font-medium mb-1">
+          ℹ️ Brak danych dziennych Solax dla tego okresu
+        </div>
+        <p className="text-muted-foreground">
+          Solax API udostępnia tylko ostatnie ~13 miesięcy danych dziennych.
+          {hasPgeData ? (
+            <>
+              {" "}
+              Dla tego miesiąca mamy dane sieciowe z faktur PGE — patrz kafelki
+              poboru/eksportu poniżej.
+            </>
+          ) : (
+            <>
+              {" "}
+              Dla tego miesiąca nie mamy też jeszcze faktury PGE.
+            </>
+          )}
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function KeyIndicators({

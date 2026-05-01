@@ -34,13 +34,27 @@ export function YearlyGroupedChart({
     );
   }
 
-  // Each year picks a different chart-color slot from globals.
-  const yearColors = [
-    CHART_COLORS.pv,
-    CHART_COLORS.gridExport,
-    CHART_COLORS.savings,
-    CHART_COLORS.muted,
+  // Audit C.6: current year always brand color (savings green, strongest),
+  // historical years gradient lightness from newest to oldest.
+  // savings (latest) → pv (penultimate) → gridExport (older) → muted (oldest)
+  const currentYear = new Date().getFullYear();
+  const yearColorMap = new Map<number, string>();
+  // Sort years descending — newest gets brand, then graduated colors back
+  const sortedYears = [...years].sort((a, b) => b - a);
+  const palette = [
+    CHART_COLORS.savings,    // bright green — current/most recent
+    CHART_COLORS.pv,         // orange — previous
+    CHART_COLORS.gridExport, // blue — older
+    CHART_COLORS.muted,      // grey — oldest
   ];
+  sortedYears.forEach((y, idx) => {
+    // Current year always strongest color (savings)
+    if (y === currentYear) {
+      yearColorMap.set(y, CHART_COLORS.savings);
+    } else {
+      yearColorMap.set(y, palette[Math.min(idx, palette.length - 1)] ?? CHART_COLORS.muted);
+    }
+  });
 
   return (
     <div className="h-72 sm:h-80 w-full">
@@ -80,12 +94,12 @@ export function YearlyGroupedChart({
             iconType="circle"
             wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
           />
-          {years.map((year, idx) => (
+          {years.map((year) => (
             <Bar
               key={year}
               dataKey={String(year)}
-              name={String(year)}
-              fill={yearColors[idx % yearColors.length]}
+              name={year === currentYear ? `${year} (bieżący)` : String(year)}
+              fill={yearColorMap.get(year) ?? CHART_COLORS.muted}
               radius={[4, 4, 0, 0]}
             />
           ))}

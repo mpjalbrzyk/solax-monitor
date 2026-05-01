@@ -136,14 +136,35 @@ export default async function DailyPage({
         </a>
       </div>
 
-      {dailyAgg && (
-        <Card className="glass mb-4">
-          <CardContent className="py-4 px-5 sm:px-6 text-sm leading-relaxed">
-            {buildDailyComment({
-              dailyAgg,
-              peakProductionW,
-              isToday,
-            })}
+      {/* === Bilans dnia HERO (audit C.3 — najważniejsza liczba pierwsza) === */}
+      {dailyAgg?.savings_pln != null && (
+        <Card className="glass-strong mb-4">
+          <CardContent className="px-5 sm:px-6 py-5">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-2">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-1">
+                  Bilans dnia
+                </div>
+                <div className="text-4xl sm:text-5xl font-semibold tabular-nums leading-none">
+                  {formatPln(
+                    Number(dailyAgg.savings_pln ?? 0) +
+                      Number(dailyAgg.earnings_pln ?? 0) -
+                      Number(dailyAgg.cost_pln ?? 0),
+                    true,
+                  )}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground sm:text-right">
+                Oszczędności z autokonsumpcji + przychód z eksportu − koszt poboru
+              </div>
+            </div>
+            <p className="text-sm leading-relaxed text-foreground/85 border-t border-zinc-200/40 pt-3">
+              {buildDailyComment({
+                dailyAgg,
+                peakProductionW,
+                isToday,
+              })}
+            </p>
           </CardContent>
         </Card>
       )}
@@ -206,27 +227,6 @@ export default async function DailyPage({
         />
       </section>
 
-      {dailyAgg?.savings_pln != null && (
-        <Card className="glass">
-          <CardContent className="py-4 px-5 sm:px-6 flex items-center justify-between">
-            <div className="text-sm">
-              Bilans dnia
-              <div className="text-xs text-muted-foreground">
-                Oszczędności z autokonsumpcji + przychód z eksportu − koszt
-                poboru
-              </div>
-            </div>
-            <div className="text-2xl font-semibold tabular-nums">
-              {formatPln(
-                Number(dailyAgg.savings_pln ?? 0) +
-                  Number(dailyAgg.earnings_pln ?? 0) -
-                  Number(dailyAgg.cost_pln ?? 0),
-                true,
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </>
   );
 }
