@@ -115,10 +115,15 @@ export default async function OverviewPage() {
   // === Gamification ===
   const productionStreak = calculateProductionStreak(lastYearDailies);
   const balanceStreak = calculatePositiveBalanceStreak(lastYearDailies);
+  // Dynamic goal: pv_capacity × 1000 kWh/kWp/year (~average for woj. mazowieckie).
+  // For 7,7 kWp = 7700 kWh. Round to nearest 100 for cleaner display.
+  const pvCapacity = Number(inverter.pv_capacity_kwp ?? 7.7);
+  const dynamicGoalKwh = Math.round((pvCapacity * 1000) / 100) * 100;
   const yearlyGoal = calculateYearlyGoalProgress(
     ytdDailies,
     allMonthly,
     today,
+    dynamicGoalKwh,
   );
   const achievements = calculateAchievements(lastYearDailies, allMonthly);
   const milestones = calculateMilestones(
@@ -316,6 +321,7 @@ export default async function OverviewPage() {
               yieldKwh: monthYield,
               balancePln: monthBalance,
               days: monthRange.length,
+              todayWarsaw: today,
             })}
             secondaryLines={[
               { label: "Średnio/dzień", value: formatKwh(monthRange.length > 0 ? monthYield / monthRange.length : 0) },

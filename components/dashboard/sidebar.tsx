@@ -24,7 +24,7 @@ export function Sidebar() {
             Solax Monitor
           </span>
           <span className="text-[11px] text-muted-foreground">
-            8 kWp · Ząbki
+            7,7 kWp · Ząbki
           </span>
         </div>
       </Link>

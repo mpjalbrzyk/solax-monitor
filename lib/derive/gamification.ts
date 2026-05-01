@@ -47,31 +47,34 @@ export function calculateProductionStreak(
   };
 }
 
-// Positive-balance streak — consecutive days where (savings + earnings - cost) > 0
+// Strong-day streak — consecutive days with yield > 5 kWh (more meaningful than
+// just any production). Replaces previous "positive balance streak" which was
+// useless because Solax dramatically undercounts cost_pln (1.70 zł rocznie vs
+// 4707 zł real PGE invoice), making every production day artificially "on plus".
+//
+// 5 kWh threshold ≈ 1 hour of full-power production, eliminates very gloomy
+// winter days where panels barely register dawn light.
 export function calculatePositiveBalanceStreak(
   dailies: DailyAggregate[],
 ): Streak {
   const sorted = [...dailies].sort((a, b) => b.date.localeCompare(a.date));
+  const STRONG_DAY_THRESHOLD = 5;
   let count = 0;
   for (const d of sorted) {
-    const balance =
-      Number(d.savings_pln ?? 0) +
-      Number(d.earnings_pln ?? 0) -
-      Number(d.cost_pln ?? 0);
-    if (balance > 0) count++;
+    if (Number(d.yield_kwh ?? 0) >= STRONG_DAY_THRESHOLD) count++;
     else break;
   }
   return {
-    label: "Dni na finansowym plusie",
+    label: "Dni z mocną produkcją",
     count,
     description:
-      count >= 14
-        ? `Bilans dodatni ${count} dni z rzędu — instalacja zarabia codziennie.`
-        : count >= 3
-          ? `${count} dni z rzędu na plus.`
+      count >= 30
+        ? `${count} dni z rzędu z produkcją ≥5 kWh — sezon w pełni.`
+        : count >= 7
+          ? `${count} dni z rzędu z mocną produkcją.`
           : count > 0
-            ? `${count} ${count === 1 ? "dzień" : "dni"} z dodatnim bilansem.`
-            : "Ostatnio zużycie domu przewyższa produkcję — typowe zimą.",
+            ? `${count} ${count === 1 ? "dzień" : "dni"} z produkcją powyżej 5 kWh.`
+            : "Ostatnio dni słabej produkcji — pochmurno albo zima.",
   };
 }
 
@@ -79,6 +82,8 @@ export function calculatePositiveBalanceStreak(
 // Default target: 7 000 kWh — szacowany roczny pułap dla 7,7 kWp w Ząbkach.
 // Liczone od 1 stycznia bieżącego roku (z daily_aggregates + jeśli mamy
 // monthly_aggregates dla tego roku, fallback z monthly).
+export type YearlyGoalStatus = "ahead" | "on_pace" | "behind";
+
 export function calculateYearlyGoalProgress(
   dailies: DailyAggregate[],
   monthly: MonthlyAggregate[],
@@ -94,6 +99,10 @@ export function calculateYearlyGoalProgress(
   paceKwhPerDay: number;
   projectedYearEndKwh: number;
   isAheadOfPace: boolean;
+  /** 3-tier status based on END-OF-YEAR projection vs goal, not YTD vs goal */
+  status: YearlyGoalStatus;
+  /** % difference from goal at end-of-year (negative = behind) */
+  projectedDeltaPct: number;
 } {
   const year = todayWarsawIso.slice(0, 4);
   const startOfYear = `${year}-01-01`;
@@ -133,8 +142,21 @@ export function calculateYearlyGoalProgress(
 
   const paceKwhPerDay = daysIntoYear > 0 ? producedKwh / daysIntoYear : 0;
   const projectedYearEndKwh = paceKwhPerDay * daysInYear;
-  const expectedByNow = (goalKwh / daysInYear) * daysIntoYear;
-  const isAheadOfPace = producedKwh >= expectedByNow;
+  const projectedDeltaPct = ((projectedYearEndKwh - goalKwh) / goalKwh) * 100;
+
+  // Status based on END-OF-YEAR PROJECTION (audit A.3 fix), not YTD progress.
+  // Projection > 105% of goal → ahead, 95-105% → on pace, < 95% → behind.
+  let status: YearlyGoalStatus;
+  if (projectedDeltaPct > 5) status = "ahead";
+  else if (projectedDeltaPct >= -5) status = "on_pace";
+  else status = "behind";
+
+  // Solar production is heavily seasonal — January linear projection is
+  // misleading. Don't claim "behind plan" until at least 90 days into year
+  // when we have enough sample to project meaningfully.
+  if (daysIntoYear < 90 && status === "behind") {
+    status = "on_pace"; // too early to call
+  }
 
   return {
     yearLabel: year,
@@ -145,7 +167,9 @@ export function calculateYearlyGoalProgress(
     daysInYear,
     paceKwhPerDay,
     projectedYearEndKwh,
-    isAheadOfPace,
+    isAheadOfPace: status !== "behind",
+    status,
+    projectedDeltaPct,
   };
 }
 
@@ -322,12 +346,16 @@ export function calculateMilestones(
     }
   }
 
-  // Single best day across all data
-  const bestDay = dailies.reduce<DailyAggregate | null>(
-    (b, d) =>
-      !b || Number(d.yield_kwh ?? 0) > Number(b.yield_kwh ?? 0) ? d : b,
-    null,
-  );
+  // Single best day across all data. Sanity check: ignore values > 100 kWh
+  // (impossible for 7,7 kWp installation, max physical ~55 kWh in perfect
+  // June day). Such values are corrupted backfill data.
+  const MAX_REASONABLE_DAILY_KWH = 100;
+  const bestDay = dailies.reduce<DailyAggregate | null>((b, d) => {
+    const yld = Number(d.yield_kwh ?? 0);
+    if (!Number.isFinite(yld) || yld <= 0 || yld > MAX_REASONABLE_DAILY_KWH) return b;
+    if (!b || yld > Number(b.yield_kwh ?? 0)) return d;
+    return b;
+  }, null);
   if (bestDay && Number(bestDay.yield_kwh) > 30) {
     milestones.push({
       date: bestDay.date,

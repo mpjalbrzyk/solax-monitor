@@ -83,8 +83,10 @@ export function periodMiniComment(args: {
   yieldKwh: number;
   balancePln: number;
   days: number;
+  /** YYYY-MM-DD in Europe/Warsaw — needed for season-aware narration */
+  todayWarsaw?: string;
 }): string {
-  const { period, yieldKwh, balancePln, days } = args;
+  const { period, yieldKwh, balancePln, days, todayWarsaw } = args;
 
   if (period === "today") {
     if (yieldKwh < 0.5) return "Pochmurny dzień / panele nieaktywne.";
@@ -101,9 +103,28 @@ export function periodMiniComment(args: {
     return "Słaby tydzień — zima / długie chmury.";
   }
 
-  // month
+  // month — season-aware (audit A.4 fix)
+  const month = todayWarsaw ? Number(todayWarsaw.slice(5, 7)) : null;
+  const dayOfMonth = todayWarsaw ? Number(todayWarsaw.slice(8, 10)) : 31;
+
+  // Empty / very low month
+  if (yieldKwh < 5 && days < 3 && dayOfMonth < 5) {
+    return "Miesiąc dopiero się zaczął — pierwsze pełne dane pojawią się dziś wieczorem.";
+  }
+
   if (balancePln > 500) return "Bardzo dobry miesiąc — instalacja zarabia.";
   if (balancePln > 100) return "Solidny miesiąc na plusie.";
-  if (balancePln > -50) return "Bilans blisko zera — typowo zimą.";
+  if (balancePln > -50) {
+    // Season-aware "blisko zera" reasoning
+    if (month != null) {
+      if ([12, 1, 2].includes(month)) return "Bilans blisko zera — typowo zimą (krótki dzień, dużo zużycia na ogrzewanie).";
+      if ([11, 3].includes(month)) return "Bilans blisko zera — pora przejściowa, jeszcze słabe nasłonecznienie.";
+      if ([5, 6, 7, 8].includes(month)) {
+        return "Bilans słaby jak na sezon — sprawdź czy nie ma awarii albo długiego pochmurnego okresu.";
+      }
+      return "Bilans blisko zera — typowo dla pory roku.";
+    }
+    return "Bilans blisko zera.";
+  }
   return "Miesiąc słaby — zużycie domu wyższe niż produkcja.";
 }

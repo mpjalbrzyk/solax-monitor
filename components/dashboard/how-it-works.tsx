@@ -130,12 +130,14 @@ export function HowItWorks() {
             <Section title="Co znaczy 'cel roczny 7000 kWh'">
               <p>
                 Twoja instalacja 7,7 kWp w Ząbkach (woj. mazowieckie) powinna
-                produkować ok. 1100 kWh na każdy 1 kWp rocznie ={" "}
-                <strong>~7000 kWh łącznie</strong>. To uśredniona wartość dla
-                Polski centralnej i zachodniej (mniej w pochmurne lata, więcej
-                w słoneczne). Pasek pokazuje gdzie jesteś w tym roku — zielony
-                oznacza że produkujesz szybciej niż średnia, pomarańczowy
-                wolniej.
+                produkować ok. 1000 kWh na każdy 1 kWp rocznie ={" "}
+                <strong>~7700 kWh łącznie</strong>. To uśredniona wartość dla
+                Polski centralnej (mniej w pochmurne lata, więcej w słoneczne).
+                Pasek statusu pokazuje stosunek <strong>projekcji końca roku</strong>{" "}
+                do celu — zielony „przed planem" znaczy że według obecnego tempa
+                skończysz powyżej celu, pomarańczowy „pod plan" — poniżej.
+                Status przemilczany przez pierwsze 3 miesiące roku, bo solar
+                jest mocno sezonowy i styczeń-luty mają niski wkład.
               </p>
             </Section>
           </div>

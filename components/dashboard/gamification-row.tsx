@@ -42,6 +42,9 @@ export function GamificationRow({
     paceKwhPerDay: number;
     projectedYearEndKwh: number;
     isAheadOfPace: boolean;
+    status: "ahead" | "on_pace" | "behind";
+    projectedDeltaPct: number;
+    daysIntoYear: number;
   };
   achievements: Achievement[];
   milestones: Milestone[];
@@ -57,23 +60,18 @@ export function GamificationRow({
             <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
               Cel roczny {yearlyGoal.yearLabel}
             </span>
-            <span
-              className={`text-[11px] font-medium ${
-                yearlyGoal.isAheadOfPace
-                  ? "text-[var(--savings-foreground)]"
-                  : "text-[var(--pv-foreground)]"
-              }`}
-            >
-              {yearlyGoal.isAheadOfPace ? "Przed planem" : "Za planem"}
-            </span>
+            <StatusBadge
+              status={yearlyGoal.status}
+              deltaPct={yearlyGoal.projectedDeltaPct}
+              tooEarly={yearlyGoal.daysIntoYear < 90}
+            />
           </div>
           <p className="text-[11px] text-muted-foreground mb-3 leading-snug">
-            <strong className="text-foreground">
-              {formatKwh(yearlyGoal.goalKwh, 0)}
-            </strong>{" "}
-            to oczekiwana roczna produkcja Twojej instalacji 7,7 kWp w Ząbkach
-            (sumarycznie 1100 kWh/kWp/rok dla woj. mazowieckiego). Pasek zielony
-            jeśli idziemy szybciej niż średnia, pomarańczowy jeśli wolniej.
+            Cel <strong className="text-foreground">{formatKwh(yearlyGoal.goalKwh, 0)}</strong>{" "}
+            = ok. 1000 kWh/kWp/rok × moc paneli (typowo dla woj. mazowieckiego).
+            Status liczony z <strong>projekcji końca roku</strong>, nie z bieżącego
+            stanu — więc pasek zielony znaczy "skończysz powyżej celu", a nie
+            "już osiągnąłeś cel".
           </p>
           <div className="flex items-end justify-between gap-3 mb-2">
             <div>
@@ -96,9 +94,11 @@ export function GamificationRow({
           <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-1000 ${
-                yearlyGoal.isAheadOfPace
+                yearlyGoal.status === "ahead"
                   ? "bg-gradient-to-r from-[var(--savings)] to-[oklch(0.78_0.15_130)]"
-                  : "bg-gradient-to-r from-[var(--pv)] to-[oklch(0.78_0.16_80)]"
+                  : yearlyGoal.status === "on_pace"
+                    ? "bg-gradient-to-r from-[var(--pv)] to-[oklch(0.78_0.16_80)]"
+                    : "bg-gradient-to-r from-[var(--grid-import)] to-[oklch(0.78_0.18_25)]"
               }`}
               style={{ width: `${Math.min(yearlyGoal.pct, 100)}%` }}
             />
@@ -178,6 +178,43 @@ export function GamificationRow({
         </Card>
       )}
     </div>
+  );
+}
+
+function StatusBadge({
+  status,
+  deltaPct,
+  tooEarly,
+}: {
+  status: "ahead" | "on_pace" | "behind";
+  deltaPct: number;
+  tooEarly: boolean;
+}) {
+  if (tooEarly) {
+    return (
+      <span className="text-[11px] font-medium text-muted-foreground">
+        Za wcześnie na ocenę
+      </span>
+    );
+  }
+  if (status === "ahead") {
+    return (
+      <span className="text-[11px] font-medium text-[var(--savings-foreground)]">
+        Przed planem +{deltaPct.toFixed(0)}%
+      </span>
+    );
+  }
+  if (status === "on_pace") {
+    return (
+      <span className="text-[11px] font-medium text-[var(--pv-foreground)]">
+        Według planu
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] font-medium text-[var(--grid-import)]">
+      Pod plan {deltaPct.toFixed(0)}%
+    </span>
   );
 }
 

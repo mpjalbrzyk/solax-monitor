@@ -136,16 +136,40 @@ export default async function YearlyPage({
   const currentYear = yearTotals.get(todayYear);
   const lastYear = yearTotals.get(previousYear);
 
-  // Same-period (jan..currentMonth) export comparison — works for any year
+  // Same-period YOY comparison (audit A.5 fix).
+  // Was: for i=1..todayMonth — compared current YTD to last-year-YTD using
+  // todayMonth as the ceiling, but we don't always have data through
+  // todayMonth (PGE invoices arrive months later). Result was -97% noise
+  // in early year when current year had 1 day vs previous full 5 months.
+  //
+  // Now: find the LAST month for which we have data in BOTH years
+  // (current and previous), and compare jan..thatMonth in both. Plus require
+  // ≥2 months of data to call YOY meaningful.
+  let lastSharedMonth = 0;
+  for (let i = 1; i <= todayMonth; i++) {
+    const mm = String(i).padStart(2, "0");
+    const cyHas = exportByYearMonth.has(`${todayYear}-${mm}`);
+    const pyHas = exportByYearMonth.has(`${previousYear}-${mm}`);
+    if (cyHas && pyHas) lastSharedMonth = i;
+  }
+
   let cySamePeriod = 0;
   let pySamePeriod = 0;
-  for (let i = 1; i <= todayMonth; i++) {
+  for (let i = 1; i <= lastSharedMonth; i++) {
     const mm = String(i).padStart(2, "0");
     cySamePeriod += exportByYearMonth.get(`${todayYear}-${mm}`) ?? 0;
     pySamePeriod += exportByYearMonth.get(`${previousYear}-${mm}`) ?? 0;
   }
-  const yoyDelta =
-    pySamePeriod > 0 ? ((cySamePeriod - pySamePeriod) / pySamePeriod) * 100 : null;
+
+  // Disable YOY badge when we don't have enough comparable data
+  const yoyMeaningful = lastSharedMonth >= 2 && pySamePeriod > 0;
+  const yoyDelta = yoyMeaningful
+    ? ((cySamePeriod - pySamePeriod) / pySamePeriod) * 100
+    : null;
+  const yoyPeriodLabel =
+    lastSharedMonth > 0
+      ? `1.${String(1).padStart(2, "0")} → ${PL_MONTH_SHORT[lastSharedMonth - 1].toLowerCase()}`
+      : null;
 
   // Best month overall by export
   let bestMonth: { ym: string; kwh: number } | null = null;
@@ -285,15 +309,19 @@ export default async function YearlyPage({
           value={
             yoyDelta != null
               ? `${yoyDelta >= 0 ? "+" : ""}${yoyDelta.toFixed(0)}%`
-              : "—"
+              : "Za mało danych"
           }
           sub={
             yoyDelta != null
-              ? `${formatKwh(cySamePeriod, 0)} vs ${formatKwh(pySamePeriod, 0)}`
-              : "brak roku odniesienia"
+              ? `${formatKwh(cySamePeriod, 0)} vs ${formatKwh(pySamePeriod, 0)} · ${yoyPeriodLabel ?? ""}`
+              : "Wiarygodne YoY po pierwszym pełnym kwartale"
+          }
+          description={
+            yoyDelta != null
+              ? `Porównujemy eksport do sieci w okresie ${yoyPeriodLabel} bieżącego roku vs ten sam okres rok temu (${lastSharedMonth} ${lastSharedMonth === 1 ? "miesiąc" : lastSharedMonth < 5 ? "miesiące" : "miesięcy"} z fakturami PGE w obu latach).`
+              : "Czekamy na faktury PGE pokrywające co najmniej 2 miesiące bieżącego roku — wtedy YoY ma sens."
           }
           tone={yoyDelta != null && yoyDelta >= 0 ? "savings" : "import"}
-          hint={GLOSSARY.yoyPorownanie}
         />
         <KpiTile
           icon={Sparkles}
