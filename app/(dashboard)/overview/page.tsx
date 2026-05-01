@@ -168,6 +168,22 @@ export default async function OverviewPage() {
     avgPrePvMonthlyKwh: avgPrePvKwhYearly / 12,
   });
 
+  // Last 12 mies. PGE — apples-to-apples z Solax 365d. Bez tego Realne tempo
+  // rozjeżdża się z Solax tempo (3-yr avg ciągnie w dół przez stare RCEm).
+  const sortedInvoices = [...pgeInvoices].sort((a, b) =>
+    b.month_date.localeCompare(a.month_date),
+  );
+  const last12 = sortedInvoices.slice(0, 12);
+  let pgeLast12mRate = 0;
+  if (last12.length === 12 && components.length > 0) {
+    const last12Result = calculatePgeActualSavings({
+      invoices: last12,
+      components,
+      avgPrePvMonthlyKwh: avgPrePvKwhYearly / 12,
+    });
+    pgeLast12mRate = last12Result.totalSavings;
+  }
+
   const solaxAnnualRate = lastYearDailies.reduce(
     (s, d) => s + (Number(d.net_balance_pln) || 0),
     0,
@@ -179,6 +195,7 @@ export default async function OverviewPage() {
     solaxCumulativeNet: cumulative.total_net_pln,
     solaxAnnualRate,
     pgeCumulativeSavings: pgeActual.totalSavings,
+    pgeLast12mRate,
   });
 
   // === Period summaries ===
@@ -338,7 +355,7 @@ export default async function OverviewPage() {
             scenario={scenarios.real}
             installationCostPln={installCost}
             label="Realne tempo (PGE)"
-            description="Z faktur PGE i historycznego zużycia. Pokazuje pieniądze które fizycznie nie poszły do PGE."
+            description="Lifetime z 37 faktur PGE od daty instalacji (luty 2023). Pieniądze które fizycznie nie poszły do PGE."
           />
           <InvestmentScenarioCard
             variant="solax"
@@ -346,7 +363,7 @@ export default async function OverviewPage() {
             scenario={scenarios.solax}
             installationCostPln={installCost}
             label="Solax tempo"
-            description="Z bieżących pomiarów inwertera. Optymistyczne — Solax zaniża pobór z sieci."
+            description="Tempo z ostatnich 12 mies. inwertera × lat od instalacji. Optymistyczne — Solax zaniża pobór z sieci."
           />
           <InvestmentExplanationCard
             installationCostPln={installCost}

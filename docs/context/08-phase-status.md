@@ -830,7 +830,8 @@ Po feedbacku Michała ("siatka jednak mi się nie podoba, wracajmy do gradientu"
 |---|---------|--------|
 | 1 | Investment Hero rozbicie na 2 osobne kafelki + 1 explanation | ✅ DONE (commit `d8e7d31`) — `<InvestmentScenarioCard>` × 2 (real/solax) + `<InvestmentExplanationCard>` z badge "wiarygodne" przy PGE |
 | 2 | Overview restructure — Dziś/Tydzień/Miesiąc vertical stack lewa kolumna | ✅ DONE (commit `d8e7d31`) — 2-col layout, lewa stack period cards, prawa stack scenario cards |
-| 3 | PDF eksport raportów | ⏳ TODO — mailto już działa, PDF ciągle toast "wkrótce" |
+| 3 | Ujednolicić bazę startową scenariuszy ROI (Solax cumulative wcześniej z 16-miesięcznego okna, PGE z 37 faktur — niespójność) | ✅ DONE — Solax cumulative = annualRate × lat_od_instalacji (ekstrapolacja wstecz). Plus overview używa `pgeLast12mRate` zamiast 3-yr avg dla apples-to-apples z Solax. Copy w `<InvestmentExplanationCard>` tłumaczy że oba startują od luty 2023 |
+| 4 | PDF eksport raportów | ⏳ TODO — mailto już działa, PDF ciągle toast "wkrótce" |
 
 ---
 

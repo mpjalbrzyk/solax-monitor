@@ -1,17 +1,20 @@
-// Two ROI scenarios:
+// Two ROI scenarios — SAME starting date (installation_date) dla obu, żeby
+// procenty zwrócone były porównywalne. Wcześniejsza wersja miała mismatch:
+// PGE cumulative bazowała na 37 fakturach (lifetime), Solax cumulative
+// na 16-miesięcznym oknie daily_aggregates (limit Solax API). To dawało
+// wizualny mirage gdzie Solax pokazywał wyższy procent niż PGE chociaż
+// jego annual rate był niższy.
 //
 //   A. Solax tempo (optymistyczny)
-//      Bazuje na sumie net_balance_pln z daily_aggregates ostatniego roku.
-//      Solax raportuje import_kwh zaniżony, więc cost_pln też. Stąd
-//      net_balance wychodzi optimistic — pokazuje realniejszy obraz "ile
-//      panele wyprodukowały i ile to wartości w cenach taryfy", ale ignoruje
-//      faktyczny rachunek PGE.
+//      Cumulative = solaxAnnualRate × yearsSinceInstall (ekstrapolacja
+//      wstecz tempa z ostatnich 365 dni na cały okres od install_date).
+//      Solax raportuje import_kwh zaniżony przez bug API, więc cost_pln
+//      też i annualRate jest optymistyczny.
 //
 //   B. Realny tempo (pesymistyczny / zbliżony do faktur)
-//      Bazuje na PGE-actual cumulative savings (z historical_pge_invoices ×
-//      tariff_components per miesiąc) podzielonych przez liczbę lat od
-//      instalacji. Liczba ta uwzględnia faktyczne rachunki PGE i historyczne
-//      ceny energii — bardziej konserwatywna, bliższa rzeczywistego zwrotu.
+//      Cumulative = suma savings z 37 faktur PGE (lifetime, bez ekstrapolacji
+//      bo dane historyczne istnieją). AnnualRate = ostatnie 12mo PGE
+//      (apples-to-apples z Solax annualRate).
 //
 // Oba scenariusze są przydatne: Solax pokazuje "ile teoretycznie" (ile by
 // wyszło bez bugów Solax importEnergy), realny pokazuje "ile faktycznie"
@@ -32,18 +35,18 @@ export type RoiScenario = {
 export function buildRoiScenarios(args: {
   installationDate: Date;
   installationCostPln: number; // 24 000 (po dotacji)
-  // Solax tempo inputs
-  solaxCumulativeNet: number; // suma net_balance z daily_aggregates
+  // Solax tempo inputs — solaxCumulativeNet zachowane dla wstecznej zgodności
+  // ale NIE używane do progress%/break-even (mismatched window vs PGE).
+  solaxCumulativeNet: number;
   solaxAnnualRate: number; // tempo z ostatnich 365 dni
   // Real tempo inputs (PGE-derived)
-  pgeCumulativeSavings: number; // z calculatePgeActualSavings
+  pgeCumulativeSavings: number; // z calculatePgeActualSavings (lifetime, 37 faktur)
   // Optional: explicit last-12-months PGE rate (preferred over 3-yr avg)
   pgeLast12mRate?: number;
 }): { solax: RoiScenario; real: RoiScenario } {
   const {
     installationDate,
     installationCostPln,
-    solaxCumulativeNet,
     solaxAnnualRate,
     pgeCumulativeSavings,
     pgeLast12mRate,
@@ -61,19 +64,25 @@ export function buildRoiScenarios(args: {
       ? pgeLast12mRate
       : pgeCumulativeSavings / yearsSinceInstall;
 
+  // KEY: Solax cumulative ujednolicony do tej samej bazy czasowej co PGE
+  // (od install_date do dziś). Solax API daje tylko ostatnie 13 mies.
+  // daily_aggregates, więc ekstrapolujemy annualRate wstecz na cały okres.
+  // Dzięki temu progress% i break-even są porównywalne między scenarios.
+  const solaxCumulativeExtrapolated = solaxAnnualRate * yearsSinceInstall;
+
   return {
     solax: scenarioOf({
       label: "Solax tempo",
       description:
-        "Z bieżących pomiarów inwertera (daily_aggregates). Optymistyczne — Solax zaniża pobór z sieci, więc bilans wychodzi wyższy niż realny.",
-      cumulativeNowPln: solaxCumulativeNet,
+        "Z pomiarów inwertera, ekstrapolowane od daty instalacji. Optymistyczne — Solax zaniża pobór z sieci, więc bilans wychodzi wyższy niż realny.",
+      cumulativeNowPln: solaxCumulativeExtrapolated,
       annualRatePln: solaxAnnualRate,
       installationCostPln,
     }),
     real: scenarioOf({
       label: "Realny tempo (PGE)",
       description:
-        "Z faktur PGE i historycznego zużycia rodziny przed PV. Konserwatywny — pokazuje pieniądze które faktycznie nie poszły do PGE w porównaniu do hipotetycznego życia bez fotowoltaiki.",
+        "Z 37 faktur PGE od daty instalacji. Konserwatywny — pokazuje pieniądze które faktycznie nie poszły do PGE w porównaniu do hipotetycznego życia bez fotowoltaiki.",
       cumulativeNowPln: pgeCumulativeSavings,
       annualRatePln: realAnnualRate,
       installationCostPln,

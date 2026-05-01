@@ -41,6 +41,11 @@ export function InvestmentExplanationCard({
             <h4 className="text-sm font-semibold tracking-tight mb-1.5">
               Czemu te liczby są różne?
             </h4>
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Oba scenariusze startują od <strong>daty instalacji</strong>{" "}
+              (luty 2023) i są liczone do dziś — ten sam okres,
+              różne metody.
+            </p>
             <ul className="text-xs text-muted-foreground leading-relaxed space-y-1.5">
               <li>
                 <span
@@ -51,9 +56,9 @@ export function InvestmentExplanationCard({
                 <span className="text-foreground/85 font-medium">
                   Realne tempo (PGE)
                 </span>{" "}
-                bazuje na 37 fakturach PGE i historycznym zużyciu rodziny.
-                To jest najbliższe prawdy — pieniądze które{" "}
-                <strong>fizycznie nie poszły do PGE</strong>.
+                — suma savings z <strong>37 faktur PGE</strong> miesiąc
+                po miesiącu (lifetime). Najbliższe prawdy: pieniądze
+                które fizycznie nie poszły do PGE.
               </li>
               <li>
                 <span
@@ -64,15 +69,15 @@ export function InvestmentExplanationCard({
                 <span className="text-foreground/85 font-medium">
                   Solax tempo
                 </span>{" "}
-                bazuje na pomiarach inwertera. Solax{" "}
-                <strong>zaniża pobór z sieci ~200×</strong> (bug API:
-                cost_pln liczy 1,70 zł/rok zamiast realnych ~330 zł).
-                Stąd liczby z Solax są zawsze{" "}
-                <strong>optymistycznie zawyżone</strong>.
+                — średnia roczna z ostatnich 12 mies. inwertera ×{" "}
+                <strong>liczba lat od instalacji</strong>{" "}
+                (ekstrapolacja, bo Solax API daje tylko ostatnie 13 mies.
+                danych dziennych). Optymistyczne, bo Solax zaniża pobór
+                z sieci ~200× (bug API).
               </li>
               {Math.abs(gap) > 100 && (
                 <li className="pt-1">
-                  Różnica wynosi{" "}
+                  Różnica tempa rocznego:{" "}
                   <strong className="text-foreground">
                     {formatPln(gap)}/rok ({gapPct > 0 ? "+" : ""}
                     {gapPct}%)
