@@ -52,6 +52,24 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Brand — green (oszczędność, autokonsumpcja, finansowy plus) */
+  --color-brand-50: #F0FDF4;
+  --color-brand-100: #DCFCE7;
+  --color-brand-300: #86EFAC;
+  --color-brand-500: #22C55E;
+  --color-brand-600: #16A34A;
+  --color-brand-700: #15803D;
+  --color-brand-800: #166534;
+
+  /* Solar — orange (produkcja PV, energia, słońce). NIE clobberuje shadcn `accent`. */
+  --color-solar-50: #FFFBEB;
+  --color-solar-100: #FEF3C7;
+  --color-solar-300: #FCD34D;
+  --color-solar-500: #F59E0B;
+  --color-solar-600: #D97706;
+  --color-solar-700: #B45309;
+  --color-solar-800: #92400E;
 }
 
 :root {
@@ -88,23 +106,59 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
-  --pv: oklch(0.74 0.17 60);
-  --pv-foreground: oklch(0.25 0.06 50);
-  --savings: oklch(0.68 0.16 155);
-  --savings-foreground: oklch(0.27 0.06 155);
-  --grid-import: oklch(0.6 0.2 25);
-  --grid-export: oklch(0.62 0.13 230);
+  /* Legacy domain tokens — wykresy/diagramy. Aliasowane na nową paletę. */
+  --pv: #D97706;                /* solar-600 */
+  --pv-foreground: #92400E;     /* solar-800 */
+  --savings: #16A34A;           /* brand-600 */
+  --savings-foreground: #166534; /* brand-800 */
+  --grid-import: #DC2626;       /* error/red */
+  --grid-export: #86EFAC;       /* brand-300 — eksport jako jaśniejszy zielony */
 
-  /* Electric blue brand accent — active states, highlights, energy theme. */
-  --brand: oklch(0.62 0.18 230);
-  --brand-soft: oklch(0.62 0.18 230 / 0.15);
-  --brand-glow: oklch(0.7 0.18 230 / 0.35);
-  --brand-foreground: oklch(0.32 0.08 230);
+  /* Brand & solar (raw — tła, gradienty, glow) */
+  --brand-50: #F0FDF4;
+  --brand-100: #DCFCE7;
+  --brand-300: #86EFAC;
+  --brand-500: #22C55E;
+  --brand-600: #16A34A;
+  --brand-700: #15803D;
+  --brand-800: #166534;
+  --brand-glow: rgba(22, 163, 74, 0.25);
 
-  /* Tech background tokens — silver panel grid + cool sweep. */
-  --bg-base: oklch(0.985 0.005 240);
-  --bg-grid: oklch(0.78 0.012 240 / 0.18);
-  --bg-sweep: oklch(0.72 0.16 230 / 0.10);
+  --solar-50: #FFFBEB;
+  --solar-100: #FEF3C7;
+  --solar-300: #FCD34D;
+  --solar-500: #F59E0B;
+  --solar-600: #D97706;
+  --solar-700: #B45309;
+  --solar-800: #92400E;
+  --solar-glow: rgba(217, 119, 6, 0.25);
+
+  /* Stany */
+  --success-bg: #F0FDF4;
+  --success-border: #BBF7D0;
+  --success-text: #166534;
+  --success-icon: #16A34A;
+
+  --warning-bg: #FFFBEB;
+  --warning-border: #FDE68A;
+  --warning-text: #92400E;
+  --warning-icon: #D97706;
+
+  --error-bg: #FEF2F2;
+  --error-border: #FECACA;
+  --error-text: #991B1B;
+  --error-icon: #DC2626;
+
+  --info-bg: #EFF6FF;
+  --info-border: #BFDBFE;
+  --info-text: #1E40AF;
+  --info-icon: #2563EB;
+
+  /* Tła aplikacji */
+  --bg-gradient-main: linear-gradient(135deg, #FFF4E6 0%, #FAFBE9 50%, #E8F5E9 100%);
+  --bg-gradient-sidebar: linear-gradient(180deg, #FFF4E6 0%, #FFEDD5 100%);
+  --bg-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --bg-card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .dark {
@@ -140,12 +194,12 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 
-  --pv: oklch(0.78 0.16 60);
-  --pv-foreground: oklch(0.96 0.02 60);
-  --savings: oklch(0.72 0.15 155);
-  --savings-foreground: oklch(0.96 0.02 155);
-  --grid-import: oklch(0.68 0.18 25);
-  --grid-export: oklch(0.7 0.13 230);
+  --pv: #FCD34D;
+  --pv-foreground: #FFFBEB;
+  --savings: #22C55E;
+  --savings-foreground: #F0FDF4;
+  --grid-import: #F87171;
+  --grid-export: #86EFAC;
 }
 
 @layer base {
@@ -154,7 +208,9 @@
   }
   body {
     @apply text-foreground;
-    background-color: var(--bg-base);
+    background: var(--bg-gradient-main);
+    background-attachment: fixed;
+    min-height: 100vh;
   }
   html {
     @apply font-sans;
@@ -166,49 +222,124 @@
     @apply rounded-2xl border border-white/40 bg-white/55 backdrop-blur-xl shadow-[0_1px_2px_rgba(15,15,15,0.04),0_8px_24px_-12px_rgba(15,15,15,0.08)];
   }
   .glass-strong {
-    @apply rounded-2xl border border-white/60 bg-white/75 backdrop-blur-2xl shadow-[0_1px_2px_rgba(15,15,15,0.05),0_12px_32px_-12px_rgba(15,15,15,0.1)];
+    @apply rounded-2xl border border-white/60 bg-white/80 backdrop-blur-2xl shadow-[0_1px_2px_rgba(15,15,15,0.05),0_12px_32px_-12px_rgba(15,15,15,0.1)];
   }
 
-  /* TechBackground layers — used by <TechBackground /> component. */
-  .panel-grid {
-    /* Solar-panel-like silver grid: 2:1 horizontal cells (panel proportion). */
-    background-image:
-      linear-gradient(to right, var(--bg-grid) 1px, transparent 1px),
-      linear-gradient(to bottom, var(--bg-grid) 1px, transparent 1px);
-    background-size: 64px 32px;
-    /* Mask: stronger near top, fades to bottom — keeps content readable. */
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
-    mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
+  /* Pastylki / przyciski — 4 warianty z gradientowym hover. Per design doc 10. */
+  .btn-twin {
+    background: var(--brand-600);
+    color: #FFFFFF;
+    font-weight: 600;
+    border-radius: 9999px;
+    padding: 0.55rem 1.15rem;
+    transition: all 200ms ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-twin:hover {
+    background: linear-gradient(135deg, var(--brand-600) 0%, var(--solar-600) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--brand-glow);
+  }
+  .btn-twin:active { transform: translateY(0); }
+  .btn-twin:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-brand {
+    background: var(--brand-600);
+    color: #FFFFFF;
+    font-weight: 600;
+    border-radius: 9999px;
+    padding: 0.55rem 1.15rem;
+    transition: all 200ms ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-brand:hover {
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--brand-glow);
+  }
+  .btn-brand:active { transform: translateY(0); }
+  .btn-brand:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-accent {
+    background: var(--solar-600);
+    color: #FFFFFF;
+    font-weight: 600;
+    border-radius: 9999px;
+    padding: 0.55rem 1.15rem;
+    transition: all 200ms ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-accent:hover {
+    background: linear-gradient(135deg, var(--solar-500) 0%, var(--solar-700) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--solar-glow);
+  }
+  .btn-accent:active { transform: translateY(0); }
+  .btn-accent:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-ghost {
+    background: transparent;
+    color: #334155;
+    font-weight: 500;
+    border-radius: 9999px;
+    padding: 0.45rem 1rem;
+    transition: all 150ms ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-ghost:hover {
+    background: var(--brand-50);
+    color: var(--brand-800);
+    border-color: var(--brand-100);
+  }
+  .btn-ghost.active,
+  .btn-ghost[data-active="true"] {
+    background: var(--brand-100);
+    color: var(--brand-800);
+    border-color: transparent;
   }
 
-  .panel-sweep {
-    /* Soft diagonal "sun on panels" highlight that drifts. */
-    background: linear-gradient(
-      135deg,
-      transparent 30%,
-      var(--bg-sweep) 50%,
-      transparent 70%
-    );
-    background-size: 200% 200%;
-    animation: panel-sweep 14s ease-in-out infinite;
-    will-change: background-position, opacity;
+  /* Status pills */
+  .pill-success {
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    color: var(--success-text);
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
   }
-
-  @keyframes panel-sweep {
-    0%, 100% {
-      background-position: 0% 100%;
-      opacity: 0.55;
-    }
-    50% {
-      background-position: 100% 0%;
-      opacity: 1;
-    }
+  .pill-error {
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    color: var(--error-text);
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 500;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .panel-sweep {
-      animation: none;
-      opacity: 0.5;
-    }
+  .pill-warning {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    color: var(--warning-text);
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .pill-neutral {
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    color: #64748B;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 500;
   }
 }

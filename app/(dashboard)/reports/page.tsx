@@ -354,10 +354,14 @@ export default async function ReportsPage() {
         <CardContent className="px-5 sm:px-6 py-4">
           <div className="flex items-start gap-3">
             <div
-              className="size-10 rounded-xl bg-[var(--brand-soft)] ring-1 ring-[var(--brand)]/30 flex items-center justify-center shrink-0"
+              className="size-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                background: "var(--brand-100)",
+                boxShadow: "inset 0 0 0 1px var(--brand-300)",
+              }}
               aria-hidden
             >
-              <FileBarChart2 className="size-5 text-[var(--brand)]" />
+              <FileBarChart2 className="size-5" style={{ color: "var(--brand-600)" }} />
             </div>
             <div className="flex-1">
               <h2 className="text-sm font-semibold tracking-tight mb-1">
@@ -379,7 +383,7 @@ export default async function ReportsPage() {
       <Card className="glass mb-4">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Calendar className="size-4 text-[var(--brand)]" />
+            <Calendar className="size-4 text-[var(--brand-600)]" />
             Tygodniowe — ostatnie 6 tygodni
           </CardTitle>
         </CardHeader>
@@ -407,7 +411,7 @@ export default async function ReportsPage() {
       <Card className="glass mb-4">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <CalendarRange className="size-4 text-[var(--brand)]" />
+            <CalendarRange className="size-4 text-[var(--brand-600)]" />
             Miesięczne — ostatnie 12 miesięcy
           </CardTitle>
         </CardHeader>
@@ -435,7 +439,7 @@ export default async function ReportsPage() {
       <Card className="glass">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <CalendarFold className="size-4 text-[var(--brand)]" />
+            <CalendarFold className="size-4 text-[var(--brand-600)]" />
             Roczne
           </CardTitle>
         </CardHeader>

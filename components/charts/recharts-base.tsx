@@ -3,16 +3,37 @@
 import type { TooltipContentProps } from "recharts";
 
 // Domain palette mirroring globals.css custom properties. Recharts needs
-// concrete color strings, so we hardcode the same oklch values here. Keep
-// in sync with the --pv / --savings / --grid-* variables.
+// concrete color strings, so we hardcode the same hex values here. Keep
+// in sync with the --pv / --savings / --grid-* / --brand-* / --solar-* vars.
+//
+// Per design system 10-color-system.md sekcja 5.4:
+//   - primary brand = green (savings, autoconsumption)
+//   - accent = orange (PV production, energy)
+//   - yearCurrent (zielony brand) MUSI dominować nad starszymi latami
 export const CHART_COLORS = {
-  pv: "oklch(0.74 0.17 60)",
-  savings: "oklch(0.68 0.16 155)",
-  gridImport: "oklch(0.6 0.2 25)",
-  gridExport: "oklch(0.62 0.13 230)",
-  load: "oklch(0.45 0.05 250)",
-  muted: "oklch(0.7 0 0)",
-  axis: "oklch(0.5 0 0)",
+  // Domain colors (legacy aliases, same hexes as in :root vars)
+  pv: "#D97706",          // solar-600 — PV production
+  savings: "#16A34A",     // brand-600 — savings, money plus
+  gridImport: "#DC2626",  // error-icon — pobór z sieci
+  gridExport: "#86EFAC",  // brand-300 — eksport (jaśniejszy zielony)
+  load: "#475569",        // slate-600 — zużycie domu (neutral)
+  muted: "#94A3B8",       // slate-400
+  axis: "#94A3B8",        // slate-400
+
+  // Year-over-year palette per doc 5.4 — bieżący rok zielony brand,
+  // starsze coraz bardziej pastelowe.
+  yearCurrent: "#16A34A",  // brand-600 — bieżący rok mocno
+  yearPrevious: "#86EFAC", // brand-300 — rok poprzedni
+  yearOlder1: "#FCD34D",   // solar-300 — 2 lata wstecz
+  yearOlder2: "#94A3B8",   // slate-400 — 3+ lata wstecz
+
+  // Anomalie
+  anomalyLow: "#DC2626",
+  anomalyHigh: "#16A34A",
+
+  // Tooltip
+  tooltipBg: "#FFFFFF",
+  tooltipBorder: "rgba(0, 0, 0, 0.08)",
 };
 
 const numberFmt0 = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 });

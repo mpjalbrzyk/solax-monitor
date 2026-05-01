@@ -304,9 +304,9 @@ export default async function WeeklyPage({
                     href={`/daily?date=${d.date}`}
                     className={`group rounded-xl border px-2 py-3 transition-all ${
                       isBest
-                        ? "border-[var(--brand)]/40 bg-[var(--brand-soft)] shadow-[0_0_16px_-4px_var(--brand-glow)]"
+                        ? "border-[var(--solar-300)] bg-[var(--solar-100)] shadow-[0_0_16px_-4px_var(--solar-glow)]"
                         : isToday
-                          ? "border-zinc-200 bg-white/70"
+                          ? "border-[var(--brand-300)] bg-[var(--brand-50)]"
                           : "border-zinc-200/60 bg-white/40 hover:bg-white/60"
                     }`}
                   >

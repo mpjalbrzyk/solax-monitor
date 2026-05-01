@@ -5,20 +5,20 @@ import { cn } from "@/lib/utils";
 
 const TONE_STYLES: Record<NarrationTone, { dot: string; ring: string }> = {
   good: {
-    dot: "bg-[var(--savings)] shadow-[0_0_8px_var(--savings)]",
-    ring: "ring-[var(--savings)]/30",
+    dot: "bg-[var(--brand-600)] shadow-[0_0_8px_var(--brand-glow)]",
+    ring: "ring-[var(--brand-300)]",
   },
   neutral: {
-    dot: "bg-[var(--brand)] shadow-[0_0_8px_var(--brand)]",
-    ring: "ring-[var(--brand)]/30",
+    dot: "bg-[var(--brand-500)] shadow-[0_0_8px_var(--brand-glow)]",
+    ring: "ring-[var(--brand-300)]",
   },
   info: {
-    dot: "bg-[var(--pv)] shadow-[0_0_8px_var(--pv)]",
-    ring: "ring-[var(--pv)]/30",
+    dot: "bg-[var(--solar-500)] shadow-[0_0_8px_var(--solar-glow)]",
+    ring: "ring-[var(--solar-300)]",
   },
   bad: {
-    dot: "bg-[var(--grid-import)] shadow-[0_0_8px_var(--grid-import)]",
-    ring: "ring-[var(--grid-import)]/30",
+    dot: "bg-[var(--error-icon)] shadow-[0_0_8px_rgba(220,38,38,0.4)]",
+    ring: "ring-[var(--error-border)]",
   },
 };
 

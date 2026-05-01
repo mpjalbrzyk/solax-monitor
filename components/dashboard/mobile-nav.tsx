@@ -25,15 +25,28 @@ export function MobileNav() {
               className={cn(
                 "flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[10px] transition-all min-w-0 shrink-0",
                 active
-                  ? "text-[var(--brand)] font-medium bg-[var(--brand-soft)]"
+                  ? "font-semibold"
                   : "text-muted-foreground hover:text-foreground",
               )}
+              style={
+                active
+                  ? {
+                      background: "var(--solar-100)",
+                      color: "var(--solar-800)",
+                    }
+                  : undefined
+              }
             >
               <Icon
-                className={cn(
-                  "size-5 transition-all",
-                  active && "drop-shadow-[0_0_4px_var(--brand-glow)]",
-                )}
+                className="size-5 transition-all"
+                style={
+                  active
+                    ? {
+                        color: "var(--solar-600)",
+                        filter: "drop-shadow(0 0 4px var(--solar-glow))",
+                      }
+                    : undefined
+                }
                 strokeWidth={active ? 2.4 : 2}
               />
               <span className="truncate">{item.label}</span>

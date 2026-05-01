@@ -11,10 +11,10 @@ import {
 import { cn } from "@/lib/utils";
 
 const TONE_DOT: Record<NarrationTone, string> = {
-  good: "bg-[var(--savings)] shadow-[0_0_8px_var(--savings)]",
-  neutral: "bg-[var(--brand)] shadow-[0_0_8px_var(--brand)]",
-  info: "bg-[var(--pv)] shadow-[0_0_8px_var(--pv)]",
-  bad: "bg-[var(--grid-import)] shadow-[0_0_8px_var(--grid-import)]",
+  good: "bg-[var(--brand-600)] shadow-[0_0_8px_var(--brand-glow)]",
+  neutral: "bg-[var(--brand-500)] shadow-[0_0_8px_var(--brand-glow)]",
+  info: "bg-[var(--solar-500)] shadow-[0_0_8px_var(--solar-glow)]",
+  bad: "bg-[var(--error-icon)] shadow-[0_0_8px_rgba(220,38,38,0.4)]",
 };
 
 export function ReportCard({
@@ -75,14 +75,14 @@ export function ReportCard({
             {detailHref && (
               <Link
                 href={detailHref}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--brand)] hover:underline"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--brand-700)] hover:text-[var(--brand-800)] hover:underline"
               >
                 Szczegóły <ArrowRight className="size-3" />
               </Link>
             )}
             <a
               href={mailto}
-              className="inline-flex items-center gap-1 rounded-full bg-white/60 hover:bg-white/80 border border-zinc-200/50 px-2.5 py-1 text-[11px] text-foreground transition-colors"
+              className="btn-brand inline-flex items-center gap-1 !py-1 !px-2.5 !text-[11px]"
               title="Otwiera Twój klient pocztowy z gotowym mailem"
             >
               <Mail className="size-3" />
@@ -95,7 +95,7 @@ export function ReportCard({
                   description: "Eksport do PDF zaplanowany w Fazie 6.",
                 })
               }
-              className="inline-flex items-center gap-1 rounded-full bg-white/40 hover:bg-white/60 border border-zinc-200/40 px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              className="btn-ghost inline-flex items-center gap-1 !py-1 !px-2.5 !text-[11px]"
             >
               <Download className="size-3" />
               PDF

@@ -34,27 +34,29 @@ export function YearlyGroupedChart({
     );
   }
 
-  // Audit C.6: current year always brand color (savings green, strongest),
-  // historical years gradient lightness from newest to oldest.
-  // savings (latest) → pv (penultimate) → gridExport (older) → muted (oldest)
+  // Per design doc 5.4: current year MUSI być yearCurrent (zielony brand) — najmocniej.
+  // Starsze lata coraz bardziej pastelowe: yearPrevious → yearOlder1 → yearOlder2.
   const currentYear = new Date().getFullYear();
   const yearColorMap = new Map<number, string>();
-  // Sort years descending — newest gets brand, then graduated colors back
-  const sortedYears = [...years].sort((a, b) => b - a);
-  const palette = [
-    CHART_COLORS.savings,    // bright green — current/most recent
-    CHART_COLORS.pv,         // orange — previous
-    CHART_COLORS.gridExport, // blue — older
-    CHART_COLORS.muted,      // grey — oldest
+  const sortedYears = [...years].sort((a, b) => b - a); // newest first
+  const olderPalette = [
+    CHART_COLORS.yearPrevious, // brand-300, jaśniejszy zielony
+    CHART_COLORS.yearOlder1,   // solar-300, jasny pomarańcz
+    CHART_COLORS.yearOlder2,   // slate-400, szary
   ];
-  sortedYears.forEach((y, idx) => {
-    // Current year always strongest color (savings)
+  let olderIdx = 0;
+  for (const y of sortedYears) {
     if (y === currentYear) {
-      yearColorMap.set(y, CHART_COLORS.savings);
+      yearColorMap.set(y, CHART_COLORS.yearCurrent);
     } else {
-      yearColorMap.set(y, palette[Math.min(idx, palette.length - 1)] ?? CHART_COLORS.muted);
+      yearColorMap.set(
+        y,
+        olderPalette[Math.min(olderIdx, olderPalette.length - 1)] ??
+          CHART_COLORS.muted,
+      );
+      olderIdx++;
     }
-  });
+  }
 
   return (
     <div className="h-72 sm:h-80 w-full">
