@@ -2,7 +2,7 @@
 
 **Cel pliku:** punkt referencji dla każdej kolejnej sesji Claude Code (i Michała). Mówi co zostało zrobione, jakie problemy napotkaliśmy po drodze, jak je rozwiązano. Aktualizowany na koniec każdej fazy.
 
-**Ostatnia aktualizacja:** 1 maja 2026 noc — Faza 3 zamknięta + UX audit response (14/24 done) + visual identity sprint (Tydzień + Raporty + narrator + design system overhaul).
+**Ostatnia aktualizacja:** 1 maja 2026 późna noc — Faza 3 zamknięta + Sprint A (Investment Hero rozbity, Overview stack) + Sprint B (Faza 6 Resend foundation gotowa, czeka API key od Michała).
 
 ---
 
@@ -16,7 +16,7 @@
 | 3 | Dashboard webowy | ✅ DONE + 3 rundy polish (1.05.2026) | ~2 dni |
 | 4 | Chatbot operacyjny | ⏸️ świadomie odłożony | 1 dzień |
 | 5 | Chatbot techniczny (RAG) | ⏸️ świadomie odłożony | 1 dzień |
-| 6 | Email digest + alerty | ⏳ pending (raporty UI gotowe — czeka Resend) | pół dnia |
+| 6 | Email digest + alerty | 🟡 foundation gotowa, czeka API key Resend od Michała | 5 min wdrożenia |
 | 7 | Multi-tenant polish | ⏳ pending | 1 dzień |
 | 8 | Case study content (równolegle) | ⏳ pending | 2 dni |
 
@@ -824,13 +824,51 @@ Po feedbacku Michała ("siatka jednak mi się nie podoba, wracajmy do gradientu"
 
 **Why warm wins:** pomarańcz=energia/słońce, zielony=oszczędność/pieniądze. Wbudowana semantyka, samo-uczy. Niebieski tech vibe gryzł się z glassmorphism + nie pasował do family use case.
 
-### Otwarte zadania zgłoszone przez Michała w sesji nocnej (do następnego sprintu)
+### Otwarte zadania zgłoszone przez Michała w sesji nocnej
 
-| # | Zadanie | Powód | Priorytet |
-|---|---------|-------|-----------|
-| 1 | **Investment Hero rozbicie** na 2-3 osobne kafelki | Obecnie "Realne tempo" (last 12mo PGE = ~9000 zł) + "Solax tempo" (~5800 zł) razem → wizualnie zielone > pomarańczowe sugeruje że Realne tempo jest *szybsze*, ale to mylące (Realne tempo z PGE jest po prostu prawdą; Solax tempo niedoszacowuje przez bug API). Trzeba osobne kafelki z explicit "to dwa różne sposoby liczenia, oba wolne, oto dlaczego" | wysoki — psuje zaufanie do hero KPI |
-| 2 | **Overview restructure** — Dziś / Tydzień / Miesiąc jako vertical stack w lewej kolumnie | Obecnie 3-col grid, user chce stronę dzielącą się na dwie kolumny: lewa = stack 3 podsumowań chronologicznie (najmłodsze u góry), prawa = Investment Hero rozbity | średni — usability |
-| 3 | **PDF eksport** raportów na realnie | Obecnie button "PDF" pokazuje toast "wkrótce". Albo `window.print()` z print-friendly CSS (tani MVP), albo `@react-pdf` (pełna kontrola) | niski — mailto już daje workflow |
+| # | Zadanie | Status |
+|---|---------|--------|
+| 1 | Investment Hero rozbicie na 2 osobne kafelki + 1 explanation | ✅ DONE (commit `d8e7d31`) — `<InvestmentScenarioCard>` × 2 (real/solax) + `<InvestmentExplanationCard>` z badge "wiarygodne" przy PGE |
+| 2 | Overview restructure — Dziś/Tydzień/Miesiąc vertical stack lewa kolumna | ✅ DONE (commit `d8e7d31`) — 2-col layout, lewa stack period cards, prawa stack scenario cards |
+| 3 | PDF eksport raportów | ⏳ TODO — mailto już działa, PDF ciągle toast "wkrótce" |
+
+---
+
+## Sesja 1.05.2026 późna noc — Sprint A (UX) + Sprint B (Faza 6 foundation)
+
+Dodatkowy sprint po podsumowaniu sesji. Commit `d8e7d31`.
+
+### Sprint A — UX poprawki (zgłoszone przez Michała w bieżącej sesji)
+
+| # | Co | Implementacja |
+|---|-----|---------------|
+| A.1 | Investment Hero rozbicie | 2 nowe komponenty: `<InvestmentScenarioCard variant="real|solax">` (jeden ring per kafelek, zielony brand vs pomarańcz solar) + `<InvestmentExplanationCard>` (czemu liczby są różne, badge "wiarygodne" przy PGE). Stary `<InvestmentHero>` z dual ring usunięty |
+| A.2 | Overview Strefa 2 layout | 2-col grid: lewa = stack period cards vertically (Dziś/Tydzień/Miesiąc jeden pod drugim), prawa = stack scenario cards (Real/Solax/Explanation). Period card icons: Dziś+Tydzień solar pomarańcz, Miesiąc brand zielony |
+
+### Sprint B — Faza 6 Resend foundation
+
+Cała infrastruktura mailowa gotowa **w kodzie**. Wymaga 5-minutowego wdrożenia od Michała: konto Resend → API key → secrets w Supabase → deploy → cron.
+
+| Plik | Co robi |
+|------|---------|
+| `supabase/functions/_shared/period-narrator.ts` | Deno port narratora (świadomie zduplikowany z `lib/derive` — Edge Functions to Deno, app/ to Node) |
+| `supabase/functions/_shared/email-template.ts` | Email-safe HTML (table-based, inline CSS), warm gradient header, glassy section cards, zielony CTA |
+| `supabase/functions/_shared/resend-client.ts` | Minimalny fetch wrapper do `/emails`. Bez deps |
+| `supabase/functions/_shared/digest-data.ts` | `fetchActiveRecipients` przez `auth.admin.listUsers` (multi-tenant ready) + summarize + Warsaw TZ helpers |
+| `supabase/functions/weekly-digest/index.ts` | Pełna logika: ostatni tydzień + tydzień poprzedni dla WoW, narrator, HTML, Resend, raport per recipient |
+| `supabase/functions/monthly-digest/index.ts` | Bilansuje miesiąc który właśnie się skończył, z YoY same month previous year |
+| `supabase/migrations/20260501230000_enable_phase6_digest_crons.sql` | pg_cron: `weekly-digest` Mon 06:00 UTC, `monthly-digest` 1st 06:00 UTC. Idempotent przez helper z Fazy 1 |
+| `docs/context/11-resend-handoff.md` | 5-krokowa instrukcja wdrożenia |
+
+### Co Michał musi zrobić żeby digesty żyły (instrukcja w `11-resend-handoff.md`)
+
+1. Konto Resend (free 3000 mails/mc) → API key
+2. `supabase secrets set RESEND_API_KEY=re_xxx` + `RESEND_FROM_EMAIL` + `PUBLIC_APP_URL`
+3. `supabase functions deploy weekly-digest monthly-digest`
+4. Manual test `curl` (instrukcja w handoff)
+5. `supabase db push` → cron żywy
+
+Prymarny Vercel deploy nie jest zmieniany przez Sprint B — Edge Functions niezależne.
 
 ---
 
